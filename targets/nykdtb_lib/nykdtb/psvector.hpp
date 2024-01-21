@@ -131,6 +131,7 @@ public:
             new (&newHeap[i]) T{mmove(m_heapStorage[i])};
             m_heapStorage[i].~T();
         }
+        std::free(m_heapStorage);
         m_heapStorage = newHeap;
     }
 
