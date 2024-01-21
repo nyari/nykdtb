@@ -1,0 +1,16 @@
+#Ignore workspace files
+/.vscode
+
+#Ignore build output directory
+/build
+**/*.7z
+
+# Files created temporarily during development
+/scratch
+
+# Ingore profiling artifact files
+**/perf.data*
+
+# Ignore coverage artifact files
+**/*.profraw
+**/*.profdata

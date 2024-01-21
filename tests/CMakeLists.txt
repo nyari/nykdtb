@@ -1,0 +1,24 @@
+include(FetchContent)
+include(CTest)
+
+FetchContent_Declare(
+  catch
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG v2.13.6)
+
+# CMake 3.14+
+FetchContent_MakeAvailable(catch)
+
+add_executable(nykdtb_tests
+main.cpp
+psvector.cpp
+)
+
+set_property(TARGET nykdtb_tests PROPERTY CXX_STANDARD 17)
+
+target_link_libraries(nykdtb_tests
+  PRIVATE
+  Catch2::Catch2
+  nykdtb_lib)
+
+add_test(NAME nykdtb_tests COMMAND nykdtb_tests)
