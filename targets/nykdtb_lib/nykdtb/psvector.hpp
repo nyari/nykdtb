@@ -18,15 +18,15 @@ public:
     using Pointer      = T*;
     using ConstPointer = const T*;
 
-    struct CopyConstruct;
-    struct MoveConstruct;
-    struct MoveAssign; 
-    struct CopyAssign;
+    static constexpr auto moveConstruct = [] (T& lhs, T&& rhs) { new (&lhs) T{mmove(rhs)}; rhs.~T();};
+    static constexpr auto moveAssign = [] (T& lhs, T&& rhs) { lhs = mmove(rhs); rhs.~T(); };
+    static constexpr auto copyConstruct = [] (T& lhs, const T& rhs) { new (&lhs) T{rhs}; };
+    static constexpr auto copyAssign = [] (T& lhs, const T& rhs) { lhs = rhs; };
 
 public:
     inline PartialStackStorageVector();
-    template<typename Iter, typename Op = CopyConstruct>
-    inline PartialStackStorageVector(Iter _begin, Iter _end, Op op = Op());
+    template<typename Iter, typename Op = decltype(copyConstruct)>
+    inline PartialStackStorageVector(Iter _begin, Iter _end, Op op = copyConstruct);
     inline PartialStackStorageVector(std::initializer_list<T> init);
     inline PartialStackStorageVector(const PartialStackStorageVector& other);
     inline PartialStackStorageVector(PartialStackStorageVector&& other);
@@ -121,19 +121,19 @@ private:
         m_allocatedSize = allocatedSize;
         m_heapStorage   = allocateMemory(m_allocatedSize);
         T* stack        = stackBegin();
-        transfer(&stack[0], &stack[m_currentSize], m_heapStorage, MoveConstruct{});
+        transfer(&stack[0], &stack[m_currentSize], m_heapStorage, moveConstruct);
     }
 
     inline void moveHeapToNewHeapWithAllocatedSize(const Size allocatedSize) {
         m_allocatedSize = allocatedSize;
         Pointer newHeap    = allocateMemory(m_allocatedSize);
-        transfer(&m_heapStorage[0], &m_heapStorage[m_currentSize], newHeap, MoveConstruct{});
+        transfer(&m_heapStorage[0], &m_heapStorage[m_currentSize], newHeap, moveConstruct);
         free(m_heapStorage);
         m_heapStorage = newHeap;
     }
 
     inline void moveHeapToStack() {
-        transfer(&m_heapStorage[0], &m_heapStorage[m_currentSize], stackBegin(), MoveConstruct{});
+        transfer(&m_heapStorage[0], &m_heapStorage[m_currentSize], stackBegin(), moveConstruct);
         m_allocatedSize = STACK_SIZE;
         free(m_heapStorage);
         m_heapStorage = nullptr;
@@ -152,38 +152,6 @@ private:
             it->~T();
         }
     }
-
-public:
-    struct MoveConstruct {
-        inline void operator()(T& lhs, T&& rhs)
-        {
-            new (&lhs) T{mmove(rhs)};
-            rhs.~T();
-        }
-    };
-
-    struct MoveAssign {
-        inline void operator()(T& lhs, T&& rhs)
-        {
-            lhs = mmove(rhs);
-            rhs.~T();
-        }
-    };
-
-    struct CopyConstruct {
-        inline void operator()(T& lhs, const T& rhs)
-        {
-            new (&lhs) T{rhs};
-        }
-    };
-
-    struct CopyAssign {
-        inline void operator()(T& lhs, const T& rhs)
-        {
-            lhs = rhs;
-        }
-    };
-
 private:
     Size m_currentSize;
     Size m_allocatedSize;
@@ -213,7 +181,7 @@ template<typename T, Size STACK_SIZE>
 inline PartialStackStorageVector<T, STACK_SIZE>::PartialStackStorageVector(const PartialStackStorageVector& other)
     : m_currentSize(0), m_allocatedSize(STACK_SIZE), m_heapStorage(nullptr) {
     ensureAllocatedSize(other.m_currentSize);
-    transfer(other.begin(), other.end(), begin(), CopyConstruct{});
+    transfer(other.begin(), other.end(), begin(), copyConstruct);
     m_currentSize = other.m_currentSize;
 }
 
@@ -221,7 +189,7 @@ template<typename T, Size STACK_SIZE>
 inline PartialStackStorageVector<T, STACK_SIZE>::PartialStackStorageVector(PartialStackStorageVector&& other)
     : m_currentSize(other.m_currentSize), m_allocatedSize(STACK_SIZE), m_heapStorage(nullptr) {
     if (other.onStack()) {
-        transfer(other.begin(), other.end(), begin(), MoveConstruct{});
+        transfer(other.begin(), other.end(), begin(), moveConstruct);
     } else {
         m_heapStorage   = other.m_heapStorage;
         m_allocatedSize = other.m_allocatedSize;
@@ -238,9 +206,9 @@ inline PartialStackStorageVector<T, STACK_SIZE>& PartialStackStorageVector<T, ST
     const Size commonPartSize = std::min(m_currentSize, other.m_currentSize);
 
     ensureAllocatedSize(other.m_currentSize);
-    transfer(other.begin(), other.ptr(commonPartSize), begin(), CopyAssign{});
+    transfer(other.begin(), other.ptr(commonPartSize), begin(), copyAssign);
     destruct(ptr(commonPartSize), ptr(m_currentSize));
-    transfer(other.ptr(commonPartSize), other.ptr(other.m_currentSize), ptr(commonPartSize), CopyConstruct{});
+    transfer(other.ptr(commonPartSize), other.ptr(other.m_currentSize), ptr(commonPartSize), copyConstruct);
 
     m_currentSize = other.m_currentSize;
     return *this;
@@ -253,9 +221,9 @@ inline PartialStackStorageVector<T, STACK_SIZE>& PartialStackStorageVector<T, ST
         const Size commonPartSize = std::min(m_currentSize, other.m_currentSize);
 
         ensureAllocatedSize(other.m_currentSize);
-        transfer(other.begin(), other.ptr(commonPartSize), begin(), MoveAssign{});
+        transfer(other.begin(), other.ptr(commonPartSize), begin(), moveAssign);
         destruct(ptr(commonPartSize), ptr(m_currentSize));
-        transfer(other.ptr(commonPartSize), other.ptr(other.m_currentSize), ptr(commonPartSize), MoveConstruct{});
+        transfer(other.ptr(commonPartSize), other.ptr(other.m_currentSize), ptr(commonPartSize), moveConstruct);
     } else {
         destruct(begin(), end());
         free(m_heapStorage);
@@ -283,8 +251,8 @@ inline typename PartialStackStorageVector<T, STACK_SIZE>::Pointer PartialStackSt
     Size erasedElemCount            = static_cast<Size>(intervalEnd - intervalBegin);
     Pointer endIteratorAfterMove    = originalEnd - erasedElemCount;
 
-    transfer(intervalEnd, intervalEnd + erasedElemCount, intervalBegin, MoveAssign{});
-    transfer(intervalEnd + erasedElemCount, originalEnd, intervalEnd, MoveConstruct{});
+    transfer(intervalEnd, intervalEnd + erasedElemCount, intervalBegin, moveAssign);
+    transfer(intervalEnd + erasedElemCount, originalEnd, intervalEnd, moveConstruct);
     destruct(endIteratorAfterMove, originalEnd);
 
     m_currentSize -= erasedElemCount;
