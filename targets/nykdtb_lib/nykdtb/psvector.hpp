@@ -108,26 +108,33 @@ private:
         }
     }
 
+    static inline Pointer allocateMemory(const Size elemCount) {
+        return reinterpret_cast<Pointer>(std::malloc(elemCount * sizeof(T)));
+    }
+
+    static inline void free(Pointer ptr) {
+        std::free(ptr);
+    }
+
     inline void moveStackToHeapWithAllocatedSize(const Size allocatedSize) {
         m_allocatedSize = allocatedSize;
-        m_heapStorage   = reinterpret_cast<T*>(std::malloc(m_allocatedSize * sizeof(T)));
+        m_heapStorage   = allocateMemory(m_allocatedSize);
         T* stack        = stackBegin();
         transfer(&stack[0], &stack[m_currentSize], m_heapStorage, MoveConstruct{});
     }
 
     inline void moveHeapToNewHeapWithAllocatedSize(const Size allocatedSize) {
         m_allocatedSize = allocatedSize;
-        auto newHeap    = reinterpret_cast<T*>(std::malloc(m_allocatedSize * sizeof(T)));
+        Pointer newHeap    = allocateMemory(m_allocatedSize);
         transfer(&m_heapStorage[0], &m_heapStorage[m_currentSize], newHeap, MoveConstruct{});
-        std::free(m_heapStorage);
+        free(m_heapStorage);
         m_heapStorage = newHeap;
     }
 
     inline void moveHeapToStack() {
-        T* stack = stackBegin();
-        transfer(&m_heapStorage[0], &m_heapStorage[m_currentSize], stack, MoveConstruct{});
+        transfer(&m_heapStorage[0], &m_heapStorage[m_currentSize], stackBegin(), MoveConstruct{});
         m_allocatedSize = STACK_SIZE;
-        std::free(m_heapStorage);
+        free(m_heapStorage);
         m_heapStorage = nullptr;
     }
 
@@ -193,8 +200,7 @@ inline PartialStackStorageVector<T, STACK_SIZE>::PartialStackStorageVector(Iter 
     : m_currentSize(0), m_allocatedSize(STACK_SIZE), m_heapStorage(nullptr) {
     const Size targetSize = static_cast<Size>(_end - _begin);
     ensureAllocatedSize(targetSize);
-    auto ptr = begin();
-    transfer(_begin, _end, ptr, op);
+    transfer(_begin, _end, begin(), op);
     m_currentSize = targetSize;
 }
 
@@ -206,8 +212,7 @@ template<typename T, Size STACK_SIZE>
 inline PartialStackStorageVector<T, STACK_SIZE>::PartialStackStorageVector(const PartialStackStorageVector& other)
     : m_currentSize(0), m_allocatedSize(STACK_SIZE), m_heapStorage(nullptr) {
     ensureAllocatedSize(other.m_currentSize);
-    auto ptr = begin();
-    transfer(other.begin(), other.end(), ptr, CopyConstruct{});
+    transfer(other.begin(), other.end(), begin(), CopyConstruct{});
     m_currentSize = other.m_currentSize;
 }
 
@@ -228,11 +233,14 @@ inline PartialStackStorageVector<T, STACK_SIZE>::PartialStackStorageVector(Parti
 template<typename T, Size STACK_SIZE>
 inline PartialStackStorageVector<T, STACK_SIZE>& PartialStackStorageVector<T, STACK_SIZE>::operator=(
     const PartialStackStorageVector& other) {
-    ensureAllocatedSize(other.m_currentSize);
+
     const Size commonPartSize = std::min(m_currentSize, other.m_currentSize);
+
+    ensureAllocatedSize(other.m_currentSize);
     transfer(other.begin(), other.ptr(commonPartSize), begin(), CopyAssign{});
     destruct(ptr(commonPartSize), ptr(m_currentSize));
     transfer(other.ptr(commonPartSize), other.ptr(other.m_currentSize), ptr(commonPartSize), CopyConstruct{});
+
     m_currentSize = other.m_currentSize;
     return *this;
 }
@@ -241,14 +249,15 @@ template<typename T, Size STACK_SIZE>
 inline PartialStackStorageVector<T, STACK_SIZE>& PartialStackStorageVector<T, STACK_SIZE>::operator=(
     PartialStackStorageVector&& other) {
     if (other.onStack()) {
-        ensureAllocatedSize(other.m_currentSize);
         const Size commonPartSize = std::min(m_currentSize, other.m_currentSize);
+
+        ensureAllocatedSize(other.m_currentSize);
         transfer(other.begin(), other.ptr(commonPartSize), begin(), MoveAssign{});
         destruct(ptr(commonPartSize), ptr(m_currentSize));
         transfer(other.ptr(commonPartSize), other.ptr(other.m_currentSize), ptr(commonPartSize), MoveConstruct{});
     } else {
         destruct(begin(), end());
-        std::free(m_heapStorage);
+        free(m_heapStorage);
         m_heapStorage   = other.m_heapStorage;
         m_allocatedSize = other.m_allocatedSize;
     }
@@ -263,7 +272,7 @@ template<typename T, Size STACK_SIZE>
 inline PartialStackStorageVector<T, STACK_SIZE>::~PartialStackStorageVector() {
     destruct(begin(), end());
     if (!onStack()) {
-        std::free(m_heapStorage);
+        free(m_heapStorage);
     }
 }
 
