@@ -266,13 +266,15 @@ inline PartialStackStorageVector<T, STACK_SIZE>::~PartialStackStorageVector() {
 template<typename T, Size STACK_SIZE>
 template<typename Iter>
 inline Iter PartialStackStorageVector<T, STACK_SIZE>::erase(Iter intervalBegin, Iter intervalEnd) {
-    Pointer end         = this->end();
-    auto offsetDistance = intervalEnd - intervalBegin;
-    Pointer movementEnd = end - offsetDistance;
-    transfer(intervalBegin + offsetDistance, intervalEnd + offsetDistance, intervalBegin, MoveAssign{});
-    transfer(intervalEnd + offsetDistance, movementEnd + offsetDistance, intervalEnd, MoveConstruct{});
-    destruct(movementEnd, end);
-    m_currentSize -= offsetDistance;
+    Pointer originalEnd             = this->end();
+    Size erasedElemCount            = static_cast<Size>(intervalEnd - intervalBegin);
+    Pointer endIteratorAfterMove    = originalEnd - erasedElemCount;
+
+    transfer(intervalEnd, intervalEnd + erasedElemCount, intervalBegin, MoveAssign{});
+    transfer(intervalEnd + erasedElemCount, originalEnd, intervalEnd, MoveConstruct{});
+    destruct(endIteratorAfterMove, originalEnd);
+
+    m_currentSize -= erasedElemCount;
     ensureAllocatedSize(m_currentSize);
     return intervalBegin;
 }
