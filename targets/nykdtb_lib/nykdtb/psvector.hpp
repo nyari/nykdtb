@@ -79,7 +79,7 @@ public:
 
     template<typename SIter>
     inline Pointer insert(Pointer before, SIter first, SIter last);
-    inline Pointer insert(Pointer before, T value) { return insert(before, &value, (&value) + 1); }
+    inline Pointer insert(Pointer before, const T& value) { return insert(before, &value, (&value) + 1); }
 
     inline T& operator[](const Index i) { return *ptr(i); }
     inline const T& operator[](const Index i) const { return *ptr(i); }
@@ -144,6 +144,16 @@ private:
     {
         for (auto i = begin; i < end; ++i) {
             op(*(target++), std::move(*i));
+        }
+    }
+
+    template<typename PS, typename PT, typename Op>
+    inline void reverseTransfer(PS begin, PS end, PT target, Op op)
+    {
+        --target;
+        --begin;
+        for (auto i = begin; i >= end; --i) {
+            op(*(target--), std::move(*i));
         }
     }
 
@@ -258,6 +268,23 @@ inline typename PartialStackStorageVector<T, STACK_SIZE>::Pointer PartialStackSt
     m_currentSize -= erasedElemCount;
     ensureAllocatedSize(m_currentSize);
     return intervalBegin;
+}
+
+template<typename T, Size STACK_SIZE>
+template<typename SIter>
+inline typename PartialStackStorageVector<T, STACK_SIZE>::Pointer PartialStackStorageVector<T, STACK_SIZE>::insert(Pointer before, SIter first, SIter last)
+{
+    Size insertedElemCount          = static_cast<Size>(last - first);
+    Index beforeIndex               = before - begin();
+    ensureAllocatedSize(m_currentSize + insertedElemCount);
+    before = ptr(beforeIndex);
+
+    Pointer newEnd = end() + insertedElemCount;
+    reverseTransfer(end(), before, newEnd, moveConstruct);
+    transfer(first, last, before, copyConstruct);
+
+    m_currentSize += insertedElemCount;
+    return before;
 }
 
 template<typename T, Size STACK_SIZE>

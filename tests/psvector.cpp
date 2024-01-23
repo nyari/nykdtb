@@ -466,3 +466,64 @@ TEST_CASE("PSVec move assign construct heap vector") {
     REQUIRE(ref[0].compare({Op::Default, Op::Moved, Op::Destructed}));
     REQUIRE(ref[1].compare({Op::Default, Op::Destructed}));
 }
+
+
+TEST_CASE("PSVec insert one element on stack") {
+    RefArr<2> ref;
+    TestVec<4> test;
+    for (const auto& r : ref) {
+        test.emplace_back(r.track());
+    }
+
+    ContainerTestAppliance inserted;
+
+    test.insert(test.ptr(1), inserted);
+    REQUIRE(test.onStack());
+    REQUIRE(test.size() == 3);
+    REQUIRE(ref[0] == test[0]);
+    REQUIRE(ref[1] == test[2]);
+    REQUIRE(ref[0].compare({Op::Default}));
+    REQUIRE(ref[1].compare({Op::Default, Op::Moved}));
+    REQUIRE(test[1].compare({Op::Default, Op::Copy}));
+    REQUIRE(inserted.compare({Op::Default, Op::Copied}));
+}
+
+TEST_CASE("PSVec insert one element on heap") {
+    RefArr<2> ref;
+    TestVec<1> test;
+    for (const auto& r : ref) {
+        test.emplace_back(r.track());
+    }
+
+    ContainerTestAppliance inserted;
+
+    test.insert(test.ptr(1), inserted);
+    REQUIRE_FALSE(test.onStack());
+    REQUIRE(test.size() == 3);
+    REQUIRE(ref[0] == test[0]);
+    REQUIRE(ref[1] == test[2]);
+    REQUIRE(ref[0].compare({Op::Default, Op::Moved}));
+    REQUIRE(ref[1].compare({Op::Default, Op::Moved}));
+    REQUIRE(test[1].compare({Op::Default, Op::Copy}));
+    REQUIRE(inserted.compare({Op::Default, Op::Copied}));
+}
+
+TEST_CASE("PSVec insert one element while moving from stack to heap") {
+    RefArr<2> ref;
+    TestVec<2> test;
+    for (const auto& r : ref) {
+        test.emplace_back(r.track());
+    }
+
+    ContainerTestAppliance inserted;
+
+    test.insert(test.ptr(1), inserted);
+    REQUIRE_FALSE(test.onStack());
+    REQUIRE(test.size() == 3);
+    REQUIRE(ref[0] == test[0]);
+    REQUIRE(ref[1] == test[2]);
+    REQUIRE(ref[0].compare({Op::Default, Op::Moved}));
+    REQUIRE(ref[1].compare({Op::Default, Op::Moved, Op::Moved}));
+    REQUIRE(test[1].compare({Op::Default, Op::Copy}));
+    REQUIRE(inserted.compare({Op::Default, Op::Copied}));
+}
