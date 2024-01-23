@@ -53,19 +53,22 @@ public:
         }
     }
 
-    inline Pointer end() { return &begin()[m_currentSize]; }
-    inline ConstPointer end() const { return &begin()[m_currentSize]; }
+    inline Pointer ptr(const Index idx) { return &begin()[idx]; }
+    inline ConstPointer ptr(const Index idx) const { return &begin()[idx]; }
+
+    inline Pointer end() { return ptr(m_currentSize); }
+    inline ConstPointer end() const { return ptr(m_currentSize); }
 
     inline void push_back(T elem) {
         ensureAllocatedSize(m_currentSize + 1);
-        new (&begin()[m_currentSize]) T{mmove(elem)};
+        new (ptr(m_currentSize)) T{mmove(elem)};
         ++m_currentSize;
     }
 
     template<typename... Args>
     inline void emplace_back(Args&&... args) {
         ensureAllocatedSize(m_currentSize + 1);
-        new (&begin()[m_currentSize]) T{std::forward<Args>(args)...};
+        new (ptr(m_currentSize)) T{std::forward<Args>(args)...};
         ++m_currentSize;
     }
 
@@ -226,9 +229,9 @@ inline PartialStackStorageVector<T, STACK_SIZE>& PartialStackStorageVector<T, ST
     const PartialStackStorageVector& other) {
     ensureAllocatedSize(other.m_currentSize);
     const Size commonPartSize = std::min(m_currentSize, other.m_currentSize);
-    transfer(&other[0], &other[commonPartSize], begin(), CopyAssign{});
-    destruct(&begin()[commonPartSize], &begin()[m_currentSize]);
-    transfer(&other[commonPartSize], &other[other.m_currentSize], &begin()[commonPartSize], CopyConstruct{});
+    transfer(other.begin(), other.ptr(commonPartSize), begin(), CopyAssign{});
+    destruct(ptr(commonPartSize), ptr(m_currentSize));
+    transfer(other.ptr(commonPartSize), other.ptr(other.m_currentSize), ptr(commonPartSize), CopyConstruct{});
     m_currentSize = other.m_currentSize;
     return *this;
 }
@@ -239,9 +242,9 @@ inline PartialStackStorageVector<T, STACK_SIZE>& PartialStackStorageVector<T, ST
     if (other.onStack()) {
         ensureAllocatedSize(other.m_currentSize);
         const Size commonPartSize = std::min(m_currentSize, other.m_currentSize);
-        transfer(&other[0], &other[commonPartSize], begin(), MoveAssign{});
-        destruct(&begin()[commonPartSize], &begin()[m_currentSize]);
-        transfer(&other[commonPartSize], &other[other.m_currentSize], &begin()[commonPartSize], MoveConstruct{});
+        transfer(other.begin(), other.ptr(commonPartSize), begin(), MoveAssign{});
+        destruct(ptr(commonPartSize), ptr(m_currentSize));
+        transfer(other.ptr(commonPartSize), other.ptr(other.m_currentSize), ptr(commonPartSize), MoveConstruct{});
     } else {
         destruct(begin(), end());
         std::free(m_heapStorage);
