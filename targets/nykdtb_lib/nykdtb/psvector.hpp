@@ -80,8 +80,8 @@ public:
         return erase(elementIt, elementIt + 1);
     }
 
-    inline T& operator[](const Index i) { return begin()[i]; }
-    inline const T& operator[](const Index i) const { return begin()[i]; }
+    inline T& operator[](const Index i) { return *ptr(i); }
+    inline const T& operator[](const Index i) const { return *ptr(i); }
 
     inline bool onStack() const { return m_heapStorage == nullptr; }
     inline bool empty() const { return m_currentSize == 0; }
