@@ -72,11 +72,8 @@ public:
         ++m_currentSize;
     }
 
-    template<typename Iter>
-    inline Iter erase(Iter intervalBegin, Iter intervalEnd);
-
-    template<typename Iter>
-    inline Iter erase(Iter elementIt) {
+    inline Pointer erase(Pointer intervalBegin, Pointer intervalEnd);
+    inline Pointer erase(Pointer elementIt) {
         return erase(elementIt, elementIt + 1);
     }
 
@@ -277,8 +274,7 @@ inline PartialStackStorageVector<T, STACK_SIZE>::~PartialStackStorageVector() {
 }
 
 template<typename T, Size STACK_SIZE>
-template<typename Iter>
-inline Iter PartialStackStorageVector<T, STACK_SIZE>::erase(Iter intervalBegin, Iter intervalEnd) {
+inline typename PartialStackStorageVector<T, STACK_SIZE>::Pointer PartialStackStorageVector<T, STACK_SIZE>::erase(Pointer intervalBegin, Pointer intervalEnd) {
     Pointer originalEnd             = this->end();
     Size erasedElemCount            = static_cast<Size>(intervalEnd - intervalBegin);
     Pointer endIteratorAfterMove    = originalEnd - erasedElemCount;
