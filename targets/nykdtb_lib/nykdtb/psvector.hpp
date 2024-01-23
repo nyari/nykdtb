@@ -77,6 +77,10 @@ public:
         return erase(elementIt, elementIt + 1);
     }
 
+    template<typename SIter>
+    inline Pointer insert(Pointer before, SIter first, SIter last);
+    inline Pointer insert(Pointer before, T value) { return insert(before, &value, (&value) + 1); }
+
     inline T& operator[](const Index i) { return *ptr(i); }
     inline const T& operator[](const Index i) const { return *ptr(i); }
 
