@@ -86,7 +86,7 @@ public:
     inline bool onStack() const { return m_heapStorage == nullptr; }
     inline bool empty() const { return m_currentSize == 0; }
 
-public:
+private:
     inline Pointer stackBegin() { return reinterpret_cast<Pointer>(&m_stackStorage[0]); }
     inline ConstPointer stackBegin() const { return reinterpret_cast<ConstPointer>(&m_stackStorage[0]); }
 
@@ -131,6 +131,21 @@ public:
         m_heapStorage = nullptr;
     }
 
+    template<typename PS, typename PT, typename Op>
+    inline void transfer(PS begin, PS end, PT target, Op op)
+    {
+        for (auto i = begin; i < end; ++i) {
+            op(*(target++), std::move(*i));
+        }
+    }
+
+    inline void destruct(Pointer begin, Pointer end) {
+        for (auto it = begin; it < end; ++it) {
+            it->~T();
+        }
+    }
+
+public:
     struct MoveConstruct {
         inline void operator()(T& lhs, T&& rhs)
         {
@@ -160,20 +175,6 @@ public:
             lhs = rhs;
         }
     };
-
-    template<typename PS, typename PT, typename Op>
-    inline void transfer(PS begin, PS end, PT target, Op op)
-    {
-        for (auto i = begin; i < end; ++i) {
-            op(*(target++), std::move(*i));
-        }
-    }
-
-    inline void destruct(Pointer begin, Pointer end) {
-        for (auto it = begin; it < end; ++it) {
-            it->~T();
-        }
-    }
 
 private:
     Size m_currentSize;
