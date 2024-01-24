@@ -10,7 +10,7 @@ namespace nykdtb {
 class ContainerTestAppliance {
 public:
     enum class Op { Default, Copy, Copied, CopyA, Move, Moved, MoveA, Destructed };
-    using OpList = ArrayList<Op>;
+    using OpList = Vec<Op>;
 
 public:
     inline ContainerTestAppliance()

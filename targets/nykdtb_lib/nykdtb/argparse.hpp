@@ -10,7 +10,7 @@ public:
     NYKDTB_DEFINE_EXCEPTION_CLASS(IncorrectParameterType, RuntimeException)
 
 public:
-    using ArgumentList = ArrayList<std::string>;
+    using ArgumentList = Vec<std::string>;
 
     struct Elem {
         enum class Type { Parameter, SwitchOneLetter, Switch, Invalid, End };

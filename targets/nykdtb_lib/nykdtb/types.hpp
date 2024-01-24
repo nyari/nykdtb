@@ -18,7 +18,7 @@ using Size         = int32_t;
 using DefaultFloat = float;
 
 template<typename T>
-using ArrayList = std::vector<T>;
+using Vec = std::vector<T>;
 
 template<typename Key, typename Value>
 using UnorderedMap = std::unordered_map<Key, Value>;
