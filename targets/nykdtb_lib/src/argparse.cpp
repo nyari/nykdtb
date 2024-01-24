@@ -38,7 +38,7 @@ ArgumentParser::Elem::Elem(std::string input) {
 
 ArgumentParser::ArgumentParser(int argc, char* argv[]) {
     for (int argumentIndex = 0; argumentIndex < argc; ++argumentIndex) {
-        m_allArguments.push_back(std::string(argv[argumentIndex]));
+        m_allArguments.emplace_back(argv[argumentIndex]);
     }
     m_remainingArguments = ArgumentList(m_allArguments.begin() + 1, m_allArguments.end());
 }
@@ -52,7 +52,7 @@ ArgumentParser::Elem ArgumentParser::parseNextArgument() {
 
     m_remainingArguments.erase(m_remainingArguments.begin());
 
-    return result;
+    return mmove(result);
 }
 
 ArgumentParser::Elem ArgumentParser::parseNextArgument(const Elem::Type expectedType) {
@@ -64,14 +64,14 @@ ArgumentParser::Elem ArgumentParser::parseNextArgument(const Elem::Type expected
         }
     }
 
-    Elem result(m_remainingArguments.front());
+    Elem result(mmove(m_remainingArguments.front()));
     if (result.type != expectedType) {
         throw IncorrectParameterType();
     }
 
     m_remainingArguments.erase(m_remainingArguments.begin());
 
-    return result;
+    return mmove(result);
 }
 
 std::string ArgumentParser::fileExtension(const std::string& input) {
