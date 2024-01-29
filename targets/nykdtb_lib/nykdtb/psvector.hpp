@@ -18,10 +18,16 @@ public:
     using Pointer      = T*;
     using ConstPointer = const T*;
 
-    static constexpr auto moveConstruct = [] (T& lhs, T&& rhs) { new (&lhs) T{mmove(rhs)}; rhs.~T();};
-    static constexpr auto moveAssign = [] (T& lhs, T&& rhs) { lhs = mmove(rhs); rhs.~T(); };
-    static constexpr auto copyConstruct = [] (T& lhs, const T& rhs) { new (&lhs) T{rhs}; };
-    static constexpr auto copyAssign = [] (T& lhs, const T& rhs) { lhs = rhs; };
+    static constexpr auto moveConstruct = [](T& lhs, T&& rhs) {
+        new (&lhs) T{mmove(rhs)};
+        rhs.~T();
+    };
+    static constexpr auto moveAssign = [](T& lhs, T&& rhs) {
+        lhs = mmove(rhs);
+        rhs.~T();
+    };
+    static constexpr auto copyConstruct = [](T& lhs, const T& rhs) { new (&lhs) T{rhs}; };
+    static constexpr auto copyAssign    = [](T& lhs, const T& rhs) { lhs = rhs; };
 
 public:
     inline PartialStackStorageVector();
@@ -73,9 +79,7 @@ public:
     }
 
     inline Pointer erase(Pointer intervalBegin, Pointer intervalEnd);
-    inline Pointer erase(Pointer elementIt) {
-        return erase(elementIt, elementIt + 1);
-    }
+    inline Pointer erase(Pointer elementIt) { return erase(elementIt, elementIt + 1); }
 
     template<typename SIter>
     inline Pointer insert(Pointer before, SIter first, SIter last);
@@ -91,17 +95,17 @@ private:
     inline Pointer stackBegin() { return reinterpret_cast<Pointer>(&m_stackStorage[0]); }
     inline ConstPointer stackBegin() const { return reinterpret_cast<ConstPointer>(&m_stackStorage[0]); }
 
-    inline void ensureAllocatedSize(const Size size) {
+    inline void ensureAllocatedSize(const Size size, const Size mtp = 2) {
         if (m_currentSize > size) throw IncorrectSizeAllocation();
 
         if (onStack()) {
             if (size > STACK_SIZE) {
-                moveStackToHeapWithAllocatedSize(size * 2);
+                moveStackToHeapWithAllocatedSize(size * mtp);
             }
         } else {
             if (size > STACK_SIZE) {
                 if (size > m_allocatedSize) {
-                    moveHeapToNewHeapWithAllocatedSize(size * 2);
+                    moveHeapToNewHeapWithAllocatedSize(size * mtp);
                 }
             } else {
                 moveHeapToStack();
@@ -113,9 +117,7 @@ private:
         return reinterpret_cast<Pointer>(std::malloc(elemCount * sizeof(T)));
     }
 
-    static inline void free(Pointer ptr) {
-        std::free(ptr);
-    }
+    static inline void free(Pointer ptr) { std::free(ptr); }
 
     inline void moveStackToHeapWithAllocatedSize(const Size allocatedSize) {
         m_allocatedSize = allocatedSize;
@@ -126,7 +128,7 @@ private:
 
     inline void moveHeapToNewHeapWithAllocatedSize(const Size allocatedSize) {
         m_allocatedSize = allocatedSize;
-        Pointer newHeap    = allocateMemory(m_allocatedSize);
+        Pointer newHeap = allocateMemory(m_allocatedSize);
         transfer(&m_heapStorage[0], &m_heapStorage[m_currentSize], newHeap, moveConstruct);
         free(m_heapStorage);
         m_heapStorage = newHeap;
@@ -140,16 +142,14 @@ private:
     }
 
     template<typename PS, typename PT, typename Op>
-    inline void transfer(PS begin, PS end, PT target, Op op)
-    {
+    inline void transfer(PS begin, PS end, PT target, Op op) {
         for (auto i = begin; i < end; ++i) {
             op(*(target++), std::move(*i));
         }
     }
 
     template<typename PS, typename PT, typename Op>
-    inline void reverseTransfer(PS begin, PS end, PT target, Op op)
-    {
+    inline void reverseTransfer(PS begin, PS end, PT target, Op op) {
         --target;
         --begin;
         for (auto i = begin; i >= end; --i) {
@@ -162,6 +162,7 @@ private:
             it->~T();
         }
     }
+
 private:
     Size m_currentSize;
     Size m_allocatedSize;
@@ -212,7 +213,6 @@ inline PartialStackStorageVector<T, STACK_SIZE>::PartialStackStorageVector(Parti
 template<typename T, Size STACK_SIZE>
 inline PartialStackStorageVector<T, STACK_SIZE>& PartialStackStorageVector<T, STACK_SIZE>::operator=(
     const PartialStackStorageVector& other) {
-
     const Size commonPartSize = std::min(m_currentSize, other.m_currentSize);
 
     ensureAllocatedSize(other.m_currentSize);
@@ -256,10 +256,11 @@ inline PartialStackStorageVector<T, STACK_SIZE>::~PartialStackStorageVector() {
 }
 
 template<typename T, Size STACK_SIZE>
-inline typename PartialStackStorageVector<T, STACK_SIZE>::Pointer PartialStackStorageVector<T, STACK_SIZE>::erase(Pointer intervalBegin, Pointer intervalEnd) {
-    Pointer originalEnd             = this->end();
-    Size erasedElemCount            = static_cast<Size>(intervalEnd - intervalBegin);
-    Pointer endIteratorAfterMove    = originalEnd - erasedElemCount;
+inline typename PartialStackStorageVector<T, STACK_SIZE>::Pointer PartialStackStorageVector<T, STACK_SIZE>::erase(
+    Pointer intervalBegin, Pointer intervalEnd) {
+    Pointer originalEnd          = this->end();
+    Size erasedElemCount         = static_cast<Size>(intervalEnd - intervalBegin);
+    Pointer endIteratorAfterMove = originalEnd - erasedElemCount;
 
     transfer(intervalEnd, intervalEnd + erasedElemCount, intervalBegin, moveAssign);
     transfer(intervalEnd + erasedElemCount, originalEnd, intervalEnd, moveConstruct);
@@ -272,10 +273,10 @@ inline typename PartialStackStorageVector<T, STACK_SIZE>::Pointer PartialStackSt
 
 template<typename T, Size STACK_SIZE>
 template<typename SIter>
-inline typename PartialStackStorageVector<T, STACK_SIZE>::Pointer PartialStackStorageVector<T, STACK_SIZE>::insert(Pointer before, SIter first, SIter last)
-{
-    Size insertedElemCount          = static_cast<Size>(last - first);
-    Index beforeIndex               = before - begin();
+inline typename PartialStackStorageVector<T, STACK_SIZE>::Pointer PartialStackStorageVector<T, STACK_SIZE>::insert(
+    Pointer before, SIter first, SIter last) {
+    Size insertedElemCount = static_cast<Size>(last - first);
+    Index beforeIndex      = before - begin();
     ensureAllocatedSize(m_currentSize + insertedElemCount);
     before = ptr(beforeIndex);
 
