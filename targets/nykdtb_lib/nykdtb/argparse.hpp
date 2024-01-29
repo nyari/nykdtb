@@ -46,6 +46,7 @@ private:
     ArgumentList m_remainingArguments;
 };
 
+using AP   = ArgumentParser;
 using APE  = ArgumentParser::Elem;
 using APET = ArgumentParser::Elem::Type;
 

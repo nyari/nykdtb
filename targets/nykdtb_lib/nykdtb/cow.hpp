@@ -1,8 +1,6 @@
 #ifndef NYKDTB_COW_HPP
 #define NYKDTB_COW_HPP
 
-#include <Eigen/Core>
-
 #include "nykdtb/types.hpp"
 
 namespace nykdtb {
