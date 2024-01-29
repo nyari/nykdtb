@@ -36,6 +36,12 @@ ArgumentParser::Elem::Elem(std::string input) {
     }
 }
 
+ArgumentParser::~ArgumentParser() noexcept(false) {
+    if (!m_remainingArguments.empty()) {
+        throw NotAllArgumentsParsed();
+    }
+}
+
 ArgumentParser::ArgumentParser(int argc, char* argv[]) {
     for (int argumentIndex = 0; argumentIndex < argc; ++argumentIndex) {
         m_allArguments.emplace_back(argv[argumentIndex]);

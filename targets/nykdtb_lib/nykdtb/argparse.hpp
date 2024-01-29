@@ -5,9 +5,10 @@
 
 namespace nykdtb {
 
-class ArgumentParser {
+class ArgumentParser final {
 public:
     NYKDTB_DEFINE_EXCEPTION_CLASS(IncorrectParameterType, RuntimeException)
+    NYKDTB_DEFINE_EXCEPTION_CLASS(NotAllArgumentsParsed, LogicException)
 
 public:
     using ArgumentList = Vec<std::string>;
@@ -30,6 +31,7 @@ public:
 
 public:
     ArgumentParser(int argc, char* argv[]);
+    ~ArgumentParser() noexcept(false);
 
     Size getRemainingArgumentsCount() { return m_remainingArguments.size(); }
     Size getAllArgumentsCount() { return m_allArguments.size(); }
