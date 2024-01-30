@@ -18,6 +18,10 @@ TEST_CASE("NDArray with one element", "[ndarray]") {
     REQUIRE(!arr.empty());
     REQUIRE(arr.size() == 1);
     REQUIRE(arr.shape() == NDArray::Shape{1});
+
+    REQUIRE(arr[0] == 1);
+
+    REQUIRE(arr[{0}] == 1);
 }
 
 TEST_CASE("NDArray with two elements and correct shape", "[ndarray]") {
@@ -26,6 +30,12 @@ TEST_CASE("NDArray with two elements and correct shape", "[ndarray]") {
     REQUIRE(!arr.empty());
     REQUIRE(arr.size() == 2);
     REQUIRE(arr.shape() == NDArray::Shape{2});
+
+    REQUIRE(arr[0] == 1);
+    REQUIRE(arr[1] == 2);
+
+    REQUIRE(arr[{0}] == 1);
+    REQUIRE(arr[{1}] == 2);
 }
 
 TEST_CASE("NDArray with two elements and correct shape", "[ndarray]") {
@@ -34,6 +44,16 @@ TEST_CASE("NDArray with two elements and correct shape", "[ndarray]") {
     REQUIRE(!arr.empty());
     REQUIRE(arr.size() == 4);
     REQUIRE(arr.shape() == NDArray::Shape{2, 2});
+
+    REQUIRE(arr[0] == 1);
+    REQUIRE(arr[1] == 2);
+    REQUIRE(arr[2] == 3);
+    REQUIRE(arr[3] == 4);
+
+    REQUIRE(arr[{0, 0}] == 1);
+    REQUIRE(arr[{0, 1}] == 2);
+    REQUIRE(arr[{1, 0}] == 3);
+    REQUIRE(arr[{1, 1}] == 4);
 }
 
 TEST_CASE("NDArray with two elements and incorrect shape", "[ndarray]") {
