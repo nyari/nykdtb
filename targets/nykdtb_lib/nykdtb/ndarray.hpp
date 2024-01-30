@@ -35,7 +35,9 @@ class NDArraySlice;
 template<typename T, typename Params>
 class NDArrayBase {
 public:
+    using Type       = T;
     using Shape      = PSVec<Size, Params::SHAPE_STACK_SIZE>;
+    using Strides    = PSVec<Size, Params::SHAPE_STACK_SIZE>;
     using Position   = PSVec<Index, Params::SHAPE_STACK_SIZE>;
     using Storage    = PSVec<T, Params::STACK_SIZE>;
     using SliceShape = PSVec<IndexRange, Params::SHAPE_STACK_SIZE>;
@@ -105,14 +107,29 @@ class NDArraySlice {
 public:
     using NDArray    = NDT;
     using SliceShape = typename NDArray::SliceShape;
+    using Shape      = typename NDArray::Shape;
+    using Strides    = typename NDArray::Strides;
+    using Type       = std::conditional<std::is_const_v<NDArray>, const typename NDArray::Type, typename NDArray::Type>;
+
+    struct RawJump {
+        Index begin;
+        Index end;
+        Size stride;
+    };
+
+    using JumpTable = PSVec<RawJump, NDArray::Parameters::SHAPE_STACK_SIZE>;
 
 public:
     NDArraySlice(NDArray& array, SliceShape shape)
-        : m_ndarray{array}, m_shape{mmove(shape)} {}
+        : m_ndarray{array}, m_sliceShape{mmove(shape)}, m_jumps(constructJumpTable(m_sliceShape)) {}
+
+    static JumpTable constructJumpTable(const SliceShape& /*sliceShape*/) { return {}; }
 
 private:
     NDArray& m_ndarray;
-    SliceShape m_shape;
+    const SliceShape m_sliceShape;
+    const Shape m_shape;
+    const JumpTable m_jumps;
 };
 
 struct DefaultNDArrayParams {
