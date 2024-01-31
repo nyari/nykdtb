@@ -18,6 +18,45 @@ static constexpr bool betweenCO(const T& lhs, const T& val, const T& rhs) {
     return lhs <= val && val < rhs;
 }
 
+class IndexRange {
+public:
+    enum Endpoint { E };
+    using EndElement = std::variant<Index, Endpoint>;
+
+    constexpr IndexRange()
+        : m_begin(0), m_end(0) {}
+
+    static constexpr IndexRange e2e() { return IndexRange{0, E}; }
+    static constexpr IndexRange none() { return IndexRange{0, 0}; }
+    static constexpr IndexRange until(EndElement end) { return IndexRange{0, end}; }
+    static constexpr IndexRange after(Index begin) { return IndexRange{begin, E}; }
+    static constexpr IndexRange between(Index begin, EndElement end) { return IndexRange{begin, end}; }
+
+    inline Size effectiveSize(Size maxValue) const { return end(maxValue) - begin(); }
+
+    inline Index begin() const { return m_begin; }
+    inline Index end(Size maxValue) const {
+        return std::visit(
+            [maxValue](auto&& arg) -> Index {
+                using T = std::decay_t<decltype(arg)>;
+                if (std::is_same_v<T, Index>) {
+                    return arg;
+                } else {
+                    return maxValue;
+                }
+            },
+            m_end);
+    }
+
+private:
+    Index m_begin;
+    EndElement m_end;
+
+private:
+    constexpr IndexRange(Index _begin, EndElement _end)
+        : m_begin{_begin}, m_end{_end} {}
+};
+
 }  // namespace nykdtb
 
 #endif

@@ -53,6 +53,8 @@ public:
         return true;
     }
 
+    inline bool operator!=(const PartialStackStorageVector& rhs) const { return !(*this == rhs); }
+
     inline ~PartialStackStorageVector();
 
     inline Size size() const { return m_currentSize; }

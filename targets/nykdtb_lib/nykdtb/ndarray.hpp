@@ -9,27 +9,6 @@
 
 namespace nykdtb {
 
-struct IndexRange {
-    enum Endpoint { E };
-    using Element = std::variant<Index, Endpoint>;
-
-    constexpr IndexRange()
-        : begin(0), end(0) {}
-
-    static constexpr IndexRange e2e() { return IndexRange{E, E}; }
-    static constexpr IndexRange none() { return IndexRange{0, 0}; }
-    static constexpr IndexRange until(Element end) { return IndexRange{E, end}; }
-    static constexpr IndexRange after(Element begin) { return IndexRange{begin, E}; }
-    static constexpr IndexRange between(Element begin, Element end) { return IndexRange{begin, end}; }
-
-    Element begin;
-    Element end;
-
-private:
-    constexpr IndexRange(Element _begin, Element _end)
-        : begin{_begin}, end{_end} {}
-};
-
 template<typename NDT>
 class NDArraySlice;
 
@@ -131,16 +110,34 @@ public:
     struct RawJump {
         Index begin;
         Index end;
-        Size stride;
     };
 
     using JumpTable = PSVec<RawJump, NDArray::Parameters::SHAPE_STACK_SIZE>;
 
+    NYKDTB_DEFINE_EXCEPTION_CLASS(InvalidSliceShape, LogicException)
+
 public:
     NDArraySlice(NDArray& array, SliceShape shape)
-        : m_ndarray{array}, m_sliceShape{mmove(shape)}, m_jumps(constructJumpTable(m_sliceShape)) {}
+        : m_ndarray{array},
+          m_sliceShape{mmove(shape)},
+          m_shape(calculateShape(m_ndarray.shape(), m_sliceShape)),
+          m_jumps(constructJumpTable(m_sliceShape)) {}
 
-    static JumpTable constructJumpTable(const SliceShape& /*sliceShape*/) { return {}; }
+    static constexpr Shape calculateShape(const Shape& original, const SliceShape& sliceShape) {
+        if (original.size() != sliceShape.size()) {
+            throw InvalidSliceShape();
+        }
+
+        Shape result(original);
+
+        for (Index i = 0; i < original.size(); ++i) {
+            result[i] = sliceShape[i].effectiveSize(original[i]);
+        }
+
+        return mmove(result);
+    }
+
+    static constexpr JumpTable constructJumpTable(const SliceShape& /*sliceShape*/) { return {}; }
 
 private:
     NDArray& m_ndarray;
