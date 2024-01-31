@@ -49,9 +49,11 @@ public:
 public:
     NDArrayBase() = default;
     NDArrayBase(Storage input)
-        : m_storage(mmove(input)), m_shape({static_cast<Size>(m_storage.size())}) {}
+        : m_storage(mmove(input)),
+          m_shape({static_cast<Size>(m_storage.size())}),
+          m_strides(calculateStrides(m_shape)) {}
     NDArrayBase(Storage input, Shape shape)
-        : m_storage(mmove(input)), m_shape(mmove(shape)) {
+        : m_storage(mmove(input)), m_shape(mmove(shape)), m_strides(calculateStrides(m_shape)) {
         if (calculateSize(m_shape) != size()) {
             throw ShapeDoesNotMatchSize();
         }
@@ -64,6 +66,7 @@ public:
 
     bool empty() const { return m_storage.empty(); }
     const Shape& shape() const { return m_shape; }
+    const Strides& strides() const { return m_strides; }
     Size size() const { return static_cast<Size>(m_storage.size()); }
 
     T& operator[](Index index) { return m_storage[index]; }
@@ -112,6 +115,7 @@ public:
 private:
     Storage m_storage;
     Shape m_shape;
+    Strides m_strides;
 };
 
 template<typename NDT>

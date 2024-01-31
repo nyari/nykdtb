@@ -45,6 +45,7 @@ TEST_CASE("NDArray with four elements and correct 2D shape", "[ndarray]") {
     REQUIRE(!arr.empty());
     REQUIRE(arr.size() == 4);
     REQUIRE(arr.shape() == TestArray::Shape{2, 2});
+    REQUIRE(arr.strides() == TestArray::Shape{2, 1});
 
     REQUIRE(arr[0] == 1);
     REQUIRE(arr[1] == 2);
