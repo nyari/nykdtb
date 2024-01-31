@@ -14,7 +14,7 @@ main.cpp
 psvector.cpp
 )
 
-set_property(TARGET nykdtb_tests PROPERTY CXX_STANDARD 17)
+set_property(TARGET nykdtb_tests PROPERTY CXX_STANDARD 20)
 
 target_link_libraries(nykdtb_tests
   PRIVATE

@@ -21,4 +21,4 @@ install(
   DESTINATION "nykdtb"
 )
 
-set_property(TARGET nykdtb_lib PROPERTY CXX_STANDARD 17)
+set_property(TARGET nykdtb_lib PROPERTY CXX_STANDARD 20)
