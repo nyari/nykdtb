@@ -17,6 +17,7 @@ struct IndexRange {
         : begin(0), end(0) {}
 
     static constexpr IndexRange e2e() { return IndexRange{E, E}; }
+    static constexpr IndexRange none() { return IndexRange{0, 0}; }
     static constexpr IndexRange until(Element end) { return IndexRange{E, end}; }
     static constexpr IndexRange after(Element begin) { return IndexRange{begin, E}; }
     static constexpr IndexRange between(Element begin, Element end) { return IndexRange{begin, end}; }
@@ -61,7 +62,7 @@ public:
     NDArrayBase& operator=(const NDArrayBase&) = delete;
     NDArrayBase& operator=(NDArrayBase&&)      = default;
 
-    bool empty() const { return m_storage == nullptr; }
+    bool empty() const { return m_storage.empty(); }
     const Shape& shape() const { return m_shape; }
     Size size() const { return static_cast<Size>(m_storage.size()); }
 
@@ -87,10 +88,21 @@ public:
         return result;
     }
 
+    static constexpr Strides calculateStrides(const Shape& shape) {
+        Strides strides(shape);
+        strides.last() = 1;
+
+        for (Index i = strides.size() - 1; i > 0; --i) {
+            strides[i - 1] = strides[i] * shape[i];
+        }
+
+        return mmove(strides);
+    }
+
     static constexpr Index calculateRawIndexUnchecked(const Shape& shape, const Position& position) {
         Index currentStride = 1;
         Index result        = 0;
-        for (Index i = shape.size() - 1; i > 0; --i) {
+        for (Index i = shape.size() - 1; i >= 0; --i) {
             result += position[i] * currentStride;
             currentStride *= shape[i];
         }
@@ -105,11 +117,12 @@ private:
 template<typename NDT>
 class NDArraySlice {
 public:
-    using NDArray    = NDT;
-    using SliceShape = typename NDArray::SliceShape;
-    using Shape      = typename NDArray::Shape;
-    using Strides    = typename NDArray::Strides;
-    using Type       = std::conditional<std::is_const_v<NDArray>, const typename NDArray::Type, typename NDArray::Type>;
+    using NDArray                      = NDT;
+    using SliceShape                   = typename NDArray::SliceShape;
+    using Shape                        = typename NDArray::Shape;
+    using Strides                      = typename NDArray::Strides;
+    static constexpr bool isConstArray = std::is_const_v<NDArray>;
+    using Type = std::conditional<isConstArray, std::add_const_t<typename NDArray::Type>, typename NDArray::Type>;
 
     struct RawJump {
         Index begin;

@@ -39,6 +39,20 @@ public:
     inline PartialStackStorageVector& operator=(const PartialStackStorageVector& other);
     inline PartialStackStorageVector& operator=(PartialStackStorageVector&& other);
 
+    inline bool operator==(const PartialStackStorageVector& rhs) const {
+        if (size() != rhs.size()) {
+            return false;
+        }
+
+        for (Index i = 0; i < size(); ++i) {
+            if ((*this)[i] != rhs[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     inline ~PartialStackStorageVector();
 
     inline Size size() const { return m_currentSize; }
@@ -87,6 +101,11 @@ public:
 
     inline T& operator[](const Index i) { return *ptr(i); }
     inline const T& operator[](const Index i) const { return *ptr(i); }
+
+    inline T& first() { return *begin(); }
+    inline const T& first() const { return *begin(); }
+    inline T& last() { return *ptr(size() - 1); }
+    inline const T& last() const { return *ptr(size() - 1); }
 
     inline bool onStack() const { return m_heapStorage == nullptr; }
     inline bool empty() const { return m_currentSize == 0; }
