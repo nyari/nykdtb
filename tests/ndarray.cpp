@@ -5,6 +5,7 @@
 using namespace nykdtb;
 
 using TestArray = NDArray<float>;
+using TestSlice = NDArraySlice<TestArray>;
 
 TEST_CASE("NDArray default construct", "[ndarray]") {
     TestArray arr;
@@ -68,5 +69,36 @@ TEST_CASE("NDArray calculateStrides tests", "[ndarray]") {
     }
     SECTION("Multi dimensional shape") {
         REQUIRE(TestArray::calculateStrides({7, 5, 3, 2}) == TestArray::Strides{30, 6, 2, 1});
+    }
+}
+
+TEST_CASE("NDArraySlice calculateRawIndex") {
+    using IR = IndexRange;
+    SECTION("One dimensional shape E2E slice") {
+        REQUIRE(TestSlice::calculateRawIndexFromSliceIndexUnchecked({1}, {1}, {IR::e2e()}, 100) == 100);
+    }
+    SECTION("One dimensional shape narrowed slice") {
+        REQUIRE(TestSlice::calculateRawIndexFromSliceIndexUnchecked({1}, {1}, {IR::between(10, 100)}, 50) == 60);
+    }
+    SECTION("Four dimensional shape E2E slice") {
+        TestSlice::Shape originalShape{5, 3, 2};
+        auto originalStrides = TestSlice::NDArray::calculateStrides(originalShape);
+
+        TestSlice::SliceShape sliceShape{IR::e2e(), IR::e2e(), IR::e2e()};
+        auto calcShape   = TestSlice::calculateShape(originalShape, sliceShape);
+        auto calcStrides = TestSlice::NDArray::calculateStrides(calcShape);
+
+        REQUIRE(TestSlice::calculateRawIndexFromSliceIndexUnchecked(originalStrides, calcStrides, sliceShape, 10) ==
+                10);
+    }
+    SECTION("Three dimensional shape narrow slices slice") {
+        TestSlice::Shape originalShape{5, 3, 2};
+        auto originalStrides = TestSlice::NDArray::calculateStrides(originalShape);
+
+        TestSlice::SliceShape sliceShape{IR::between(2, 4), IR::one(1), IR::e2e()};
+        auto calcShape   = TestSlice::calculateShape(originalShape, sliceShape);
+        auto calcStrides = TestSlice::NDArray::calculateStrides(calcShape);
+
+        REQUIRE(TestSlice::calculateRawIndexFromSliceIndexUnchecked(originalStrides, calcStrides, sliceShape, 3) == 21);
     }
 }

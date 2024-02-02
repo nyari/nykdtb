@@ -31,6 +31,7 @@ public:
     static constexpr IndexRange until(EndElement end) { return IndexRange{0, end}; }
     static constexpr IndexRange after(Index begin) { return IndexRange{begin, E}; }
     static constexpr IndexRange between(Index begin, EndElement end) { return IndexRange{begin, end}; }
+    static constexpr IndexRange one(Index elem) { return IndexRange{elem, elem + 1}; }
 
     inline Size effectiveSize(Size maxValue) const { return end(maxValue) - begin(); }
 

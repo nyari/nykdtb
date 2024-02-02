@@ -50,9 +50,9 @@ public:
 
     T& operator[](Index index) { return m_storage[index]; }
     const T& operator[](Index index) const { return m_storage[index]; }
-    T& operator[](const Position& pos) { return this->operator[](calculateRawIndexUnchecked(m_shape, pos)); }
+    T& operator[](const Position& pos) { return this->operator[](calculateRawIndexUnchecked(m_strides, pos)); }
     const T& operator[](const Position& pos) const {
-        return this->operator[](calculateRawIndexUnchecked(m_shape, pos));
+        return this->operator[](calculateRawIndexUnchecked(m_strides, pos));
     }
     NDArraySlice<NDArrayBase> slice(SliceShape shape) { return {*this, mmove(shape)}; }
     NDArraySlice<const NDArrayBase> slice(SliceShape shape) const { return {*this, mmove(shape)}; }
@@ -81,12 +81,10 @@ public:
         return mmove(strides);
     }
 
-    static constexpr Index calculateRawIndexUnchecked(const Shape& shape, const Position& position) {
-        Index currentStride = 1;
-        Index result        = 0;
-        for (Index i = shape.size() - 1; i >= 0; --i) {
-            result += position[i] * currentStride;
-            currentStride *= shape[i];
+    static constexpr Index calculateRawIndexUnchecked(const Strides& strides, const Position& position) {
+        Index result = 0;
+        for (Index i = 0; i < strides.size(); ++i) {
+            result += strides[i] * position[i];
         }
         return result;
     }
@@ -104,15 +102,9 @@ public:
     using SliceShape                   = typename NDArray::SliceShape;
     using Shape                        = typename NDArray::Shape;
     using Strides                      = typename NDArray::Strides;
+    using Position                     = typename NDArray::Position;
     static constexpr bool isConstArray = std::is_const_v<NDArray>;
     using Type = std::conditional<isConstArray, std::add_const_t<typename NDArray::Type>, typename NDArray::Type>;
-
-    struct RawJump {
-        Index begin;
-        Index end;
-    };
-
-    using JumpTable = PSVec<RawJump, NDArray::Parameters::SHAPE_STACK_SIZE>;
 
     NYKDTB_DEFINE_EXCEPTION_CLASS(InvalidSliceShape, LogicException)
 
@@ -120,8 +112,7 @@ public:
     NDArraySlice(NDArray& array, SliceShape shape)
         : m_ndarray{array},
           m_sliceShape{mmove(shape)},
-          m_shape(calculateShape(m_ndarray.shape(), m_sliceShape)),
-          m_jumps(constructJumpTable(m_sliceShape)) {}
+          m_shape(calculateShape(m_ndarray.shape(), m_sliceShape), m_strides(NDArray::calculateStrides(m_shape))) {}
 
     static constexpr Shape calculateShape(const Shape& original, const SliceShape& sliceShape) {
         if (original.size() != sliceShape.size()) {
@@ -137,13 +128,37 @@ public:
         return mmove(result);
     }
 
-    static constexpr JumpTable constructJumpTable(const SliceShape& /*sliceShape*/) { return {}; }
+    static constexpr Index calculateRawIndexFromPositionUnchecked(const Strides& arrayStrides,
+                                                                  const SliceShape& sliceShape,
+                                                                  const Position& position) {
+        Index result = 0;
+        for (Index i = 0; i < arrayStrides.size(); ++i) {
+            result += arrayStrides[i] * (sliceShape[i].begin() + position[i]);
+        }
+        return result;
+    }
+
+    static constexpr Index calculateRawIndexFromSliceIndexUnchecked(const Strides& arrayStrides,
+                                                                    const Strides& sliceStrides,
+                                                                    const SliceShape& sliceShape,
+                                                                    Index index) {
+        Index result = 0;
+        for (Index i = 0; i < arrayStrides.size(); ++i) {
+            const auto sliceStride = sliceStrides[i];
+            const auto arrayStride = arrayStrides[i];
+            const auto arrayBegin  = sliceShape[i].begin();
+            const Index dimStrides = index / sliceStride;
+            index                  = index % sliceStride;
+            result += (dimStrides + arrayBegin) * arrayStride;
+        }
+        return result;
+    }
 
 private:
     NDArray& m_ndarray;
     const SliceShape m_sliceShape;
     const Shape m_shape;
-    const JumpTable m_jumps;
+    const Strides m_strides;
 };
 
 struct DefaultNDArrayParams {
