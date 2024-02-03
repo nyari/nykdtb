@@ -32,6 +32,8 @@ struct NDArrayShape : public PSVec<Size, STACK_SIZE> {
 
         return true;
     }
+
+    bool operator!=(const NDArrayShape& other) const { return !(*this == other); }
 };
 
 template<typename T>
@@ -136,9 +138,6 @@ private:
     Shape m_shape;
     Strides m_strides;
 };
-
-template<NDArrayLike NDT>
-class NDArraySliceProxy {};
 
 template<NDArrayLike NDT>
 class NDArraySlice {

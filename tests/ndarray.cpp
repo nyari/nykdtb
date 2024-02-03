@@ -1,6 +1,7 @@
 #include "nykdtb/ndarray.hpp"
 
 #include "catch2/catch.hpp"
+#include "nykdtb/ndarray_ops.hpp"
 
 using namespace nykdtb;
 
@@ -103,7 +104,13 @@ TEST_CASE("NDArraySlice calculateRawIndex") {
     }
 }
 
-TEST_CASE("Build concept NDArrayLike") {
-    NDArraySliceProxy<TestArray> hello;
-    static_cast<void>(hello);
+TEST_CASE("NDArray add same shape arrays", "[ndarray]") {
+    TestArray arr1({1, 2, 3, 4}, {2, 2});
+    TestArray arr2({4, 3, 2, 1}, {2, 2});
+
+    nda::addAssign(arr1, arr2);
+
+    for (Index i = 0; i < 4; ++i) {
+        REQUIRE(arr1[i] == 5);
+    }
 }
