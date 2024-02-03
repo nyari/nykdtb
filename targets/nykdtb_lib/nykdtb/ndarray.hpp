@@ -9,19 +9,54 @@
 
 namespace nykdtb {
 
-template<typename T>
-concept NDArrayLike = requires(T a) {
-    { a[Index{0}] } -> std::same_as<T>;
+template<Size STACK_SIZE>
+struct NDArrayShape : public PSVec<Size, STACK_SIZE> {
+    NDArrayShape() = default;
+    NDArrayShape(std::initializer_list<Size> list)
+        : PSVec<Size, STACK_SIZE>(list) {}
+
+    bool operator==(const NDArrayShape& other) const {
+        const NDArrayShape& me = *this;
+
+        for (Index i = 0, j = 0; i < me.size() && j < other.size(); ++i, ++j) {
+            if (me[i] != other[j]) {
+                if (me[i] == 1 && other[j] != 1) {
+                    --j;
+                } else if (me[i] != 1 && other[j] == 1) {
+                    --i;
+                } else {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
 };
 
-template<typename NDT>
+template<typename T>
+concept NDArrayLike = requires(T a) {
+    typename T::Type;
+    typename T::SliceShape;
+    typename T::Shape;
+    typename T::Strides;
+    typename T::Position;
+
+    { a[Index{0}] } -> std::common_reference_with<typename T::Type>;
+    { a[typename T::Position{0}] } -> std::common_reference_with<typename T::Type>;
+    { a.empty() } -> std::same_as<bool>;
+    { a.shape() } -> std::common_reference_with<typename T::Shape>;
+    { a.strides() } -> std::common_reference_with<typename T::Strides>;
+};
+
+template<NDArrayLike NDT>
 class NDArraySlice;
 
 template<typename T, typename Params>
 class NDArrayBase {
 public:
     using Type       = T;
-    using Shape      = PSVec<Size, Params::SHAPE_STACK_SIZE>;
+    using Shape      = NDArrayShape<Params::SHAPE_STACK_SIZE>;
     using Strides    = PSVec<Size, Params::SHAPE_STACK_SIZE>;
     using Position   = PSVec<Index, Params::SHAPE_STACK_SIZE>;
     using Storage    = PSVec<T, Params::STACK_SIZE>;
@@ -59,8 +94,6 @@ public:
     const T& operator[](const Position& pos) const {
         return this->operator[](calculateRawIndexUnchecked(m_strides, pos));
     }
-    NDArraySlice<NDArrayBase> slice(SliceShape shape) { return {*this, mmove(shape)}; }
-    NDArraySlice<const NDArrayBase> slice(SliceShape shape) const { return {*this, mmove(shape)}; }
 
 public:
     static constexpr Size calculateSize(const Shape& shape) {
@@ -96,7 +129,7 @@ public:
 
 private:
     NDArrayBase(const NDArrayBase&)            = default;
-    NDArrayBase& operator=(const NDArrayBase&) = default;
+    NDArrayBase& operator=(const NDArrayBase&) = delete;
 
 private:
     Storage m_storage;
@@ -104,7 +137,10 @@ private:
     Strides m_strides;
 };
 
-template<typename NDT>
+template<NDArrayLike NDT>
+class NDArraySliceProxy {};
+
+template<NDArrayLike NDT>
 class NDArraySlice {
 public:
     using NDArray                      = NDT;

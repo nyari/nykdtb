@@ -102,3 +102,8 @@ TEST_CASE("NDArraySlice calculateRawIndex") {
         REQUIRE(TestSlice::calculateRawIndexFromSliceIndexUnchecked(originalStrides, calcStrides, sliceShape, 3) == 21);
     }
 }
+
+TEST_CASE("Build concept NDArrayLike") {
+    NDArraySliceProxy<TestArray> hello;
+    static_cast<void>(hello);
+}
