@@ -9,6 +9,11 @@
 
 namespace nykdtb {
 
+template<typename T>
+concept NDArrayLike = requires(T a) {
+    { a[Index{0}] } -> std::same_as<T>;
+};
+
 template<typename NDT>
 class NDArraySlice;
 
@@ -38,10 +43,10 @@ public:
         }
     }
 
-    NDArrayBase(const NDArrayBase&)            = delete;
-    NDArrayBase(NDArrayBase&&)                 = default;
-    NDArrayBase& operator=(const NDArrayBase&) = delete;
-    NDArrayBase& operator=(NDArrayBase&&)      = default;
+    NDArrayBase(NDArrayBase&&)            = default;
+    NDArrayBase& operator=(NDArrayBase&&) = default;
+
+    NDArrayBase clone() const { return {*this}; }
 
     bool empty() const { return m_storage.empty(); }
     const Shape& shape() const { return m_shape; }
@@ -90,6 +95,10 @@ public:
     }
 
 private:
+    NDArrayBase(const NDArrayBase&)            = default;
+    NDArrayBase& operator=(const NDArrayBase&) = default;
+
+private:
     Storage m_storage;
     Shape m_shape;
     Strides m_strides;
@@ -113,6 +122,30 @@ public:
         : m_ndarray{array},
           m_sliceShape{mmove(shape)},
           m_shape(calculateShape(m_ndarray.shape(), m_sliceShape), m_strides(NDArray::calculateStrides(m_shape))) {}
+
+    bool empty() const { return NDArray::calculateSize(m_shape); }
+    const Shape& shape() const { return m_shape; }
+    const SliceShape& sliceShape() const { return m_sliceShape; }
+    const Strides& strides() const { return m_strides; }
+    Size size() const { return NDArray::calculateSize(m_shape); }
+
+    Type& operator[](const Index index) { return m_ndarray[calculateRawIndexFromSliceIndexUnchecked(index)]; }
+    const Type& operator[](const Index index) const {
+        return m_ndarray[calculateRawIndexFromSliceIndexUnchecked(index)];
+    }
+
+    Type& operator[](const Position& position) { return m_ndarray[calculateRawIndexFromPositionUnchecked(position)]; }
+    const Type& operator[](const Position& position) const {
+        return m_ndarray[calculateRawIndexFromPositionUnchecked(position)];
+    }
+
+    Index calculateRawIndexFromSliceIndexUnchecked(Index index) const {
+        return calculateRawIndexFromSliceIndexUnchecked(m_ndarray.strides(), m_strides, m_sliceShape, index);
+    }
+
+    Index calculateRawIndexFromPositionUnchecked(const Position& position) const {
+        return calculateRawIndexFromPositionUnchecked(m_ndarray.strides(), m_sliceShape, position);
+    }
 
     static constexpr Shape calculateShape(const Shape& original, const SliceShape& sliceShape) {
         if (original.size() != sliceShape.size()) {
