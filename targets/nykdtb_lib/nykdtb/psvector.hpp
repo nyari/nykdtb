@@ -233,7 +233,7 @@ private:
     Size m_currentSize;
     Size m_allocatedSize;
     T* m_heapStorage;
-    uint8_t m_stackStorage[sizeof(T) * STACK_SIZE];
+    alignas(T) uint8_t m_stackStorage[sizeof(T) * STACK_SIZE];
 };
 
 template<typename T, Size STACK_SIZE>
