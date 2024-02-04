@@ -74,7 +74,6 @@ TEST_CASE("NDArray calculateStrides tests", "[ndarray]") {
 }
 
 TEST_CASE("NDArraySlice calculateRawIndex") {
-    using IR = IndexRange;
     SECTION("One dimensional shape E2E slice") {
         REQUIRE(TestSlice::calculateRawIndexFromSliceIndexUnchecked({1}, {1}, {IR::e2e()}, 100) == 100);
     }
@@ -120,14 +119,14 @@ TEST_CASE("NDArray add slice to array", "[ndarray]") {
     TestArray arr2({4, 3, 2, 1, 1, 2, 3, 4}, {4, 2});
 
     SECTION("Slice begin") {
-        nda::addAssign(arr1, TestSlice{arr2, {IndexRange::until(2), IndexRange::e2e()}});
+        nda::addAssign(arr1, TestSlice{arr2, {IR::until(2), IR::e2e()}});
 
         for (Index i = 0; i < 4; ++i) {
             REQUIRE(arr1[i] == 5);
         }
     }
     SECTION("Slice end") {
-        nda::addAssign(arr1, TestSlice{arr2, {IndexRange::after(2), IndexRange::e2e()}});
+        nda::addAssign(arr1, TestSlice{arr2, {IR::after(2), IR::e2e()}});
         for (Index i = 0; i < 4; ++i) {
             REQUIRE(arr1[i] == ((i + 1) * 2));
         }

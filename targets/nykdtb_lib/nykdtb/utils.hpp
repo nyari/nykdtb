@@ -58,6 +58,8 @@ private:
         : m_begin{_begin}, m_end{_end} {}
 };
 
+using IR = IndexRange;
+
 }  // namespace nykdtb
 
 #endif
