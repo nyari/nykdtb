@@ -34,6 +34,18 @@ struct NDArrayShape : public PSVec<Size, STACK_SIZE> {
     }
 
     bool operator!=(const NDArrayShape& other) const { return !(*this == other); }
+
+    Size shapeSize() const {
+        if (PSVec<Size, STACK_SIZE>::empty()) {
+            return 0;
+        }
+
+        Size result = 1;
+        for (auto size : *this) {
+            result *= size;
+        }
+        return result;
+    }
 };
 
 template<typename T>
@@ -77,7 +89,7 @@ public:
           m_strides(calculateStrides(m_shape)) {}
     NDArrayBase(Storage input, Shape shape)
         : m_storage(mmove(input)), m_shape(mmove(shape)), m_strides(calculateStrides(m_shape)) {
-        if (calculateSize(m_shape) != size()) {
+        if (m_shape.shapeSize() != size()) {
             throw ShapeDoesNotMatchSize();
         }
     }
@@ -105,18 +117,6 @@ public:
     }
 
 public:
-    static constexpr Size calculateSize(const Shape& shape) {
-        if (shape.empty()) {
-            return 0;
-        }
-
-        Size result = 1;
-        for (auto size : shape) {
-            result *= size;
-        }
-        return result;
-    }
-
     static constexpr Strides calculateStrides(const Shape& shape) {
         Strides strides(shape);
         strides.last() = 1;
@@ -175,11 +175,11 @@ public:
           m_shape(calculateShape(m_ndarray.shape(), m_sliceShape)),
           m_strides(NDArray::calculateStrides(m_shape)) {}
 
-    bool empty() const { return NDArray::calculateSize(m_shape); }
+    bool empty() const { return m_shape.shapeSize(); }
     const Shape& shape() const { return m_shape; }
     const SliceShape& sliceShape() const { return m_sliceShape; }
     const Strides& strides() const { return m_strides; }
-    Size size() const { return NDArray::calculateSize(m_shape); }
+    Size size() const { return m_shape.shapeSize(); }
 
     Iterator begin() { return Iterator(*this); }
     ConstIterator begin() const { return ConstIterator(*this); }
