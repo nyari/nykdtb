@@ -96,7 +96,7 @@ TEST_CASE("NDArraySlice calculateRawIndex") {
         TestSlice::Shape originalShape{5, 3, 2};
         auto originalStrides = TestSlice::NDArray::calculateStrides(originalShape);
 
-        TestSlice::SliceShape sliceShape{IR::between(2, 4), IR::one(1), IR::e2e()};
+        TestSlice::SliceShape sliceShape{IR::between(2, 4), IR::single(1), IR::e2e()};
         auto calcShape   = TestSlice::calculateShape(originalShape, sliceShape);
         auto calcStrides = TestSlice::NDArray::calculateStrides(calcShape);
 
@@ -112,5 +112,24 @@ TEST_CASE("NDArray add same shape arrays", "[ndarray]") {
 
     for (Index i = 0; i < 4; ++i) {
         REQUIRE(arr1[i] == 5);
+    }
+}
+
+TEST_CASE("NDArray add slice to array", "[ndarray]") {
+    TestArray arr1({1, 2, 3, 4}, {2, 2});
+    TestArray arr2({4, 3, 2, 1, 1, 2, 3, 4}, {4, 2});
+
+    SECTION("Slice begin") {
+        nda::addAssign(arr1, TestSlice{arr2, {IndexRange::until(2), IndexRange::e2e()}});
+
+        for (Index i = 0; i < 4; ++i) {
+            REQUIRE(arr1[i] == 5);
+        }
+    }
+    SECTION("Slice end") {
+        nda::addAssign(arr1, TestSlice{arr2, {IndexRange::after(2), IndexRange::e2e()}});
+        for (Index i = 0; i < 4; ++i) {
+            REQUIRE(arr1[i] == ((i + 1) * 2));
+        }
     }
 }

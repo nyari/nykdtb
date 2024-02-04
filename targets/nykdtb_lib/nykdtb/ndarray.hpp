@@ -148,7 +148,8 @@ public:
     using Strides                      = typename NDArray::Strides;
     using Position                     = typename NDArray::Position;
     static constexpr bool isConstArray = std::is_const_v<NDArray>;
-    using Type = std::conditional<isConstArray, std::add_const_t<typename NDArray::Type>, typename NDArray::Type>;
+    using Type      = std::conditional<isConstArray, std::add_const_t<typename NDArray::Type>, typename NDArray::Type>;
+    using ConstType = const std::remove_const_t<typename NDArray::Type>;
 
     NYKDTB_DEFINE_EXCEPTION_CLASS(InvalidSliceShape, LogicException)
 
@@ -156,7 +157,8 @@ public:
     NDArraySlice(NDArray& array, SliceShape shape)
         : m_ndarray{array},
           m_sliceShape{mmove(shape)},
-          m_shape(calculateShape(m_ndarray.shape(), m_sliceShape), m_strides(NDArray::calculateStrides(m_shape))) {}
+          m_shape(calculateShape(m_ndarray.shape(), m_sliceShape)),
+          m_strides(NDArray::calculateStrides(m_shape)) {}
 
     bool empty() const { return NDArray::calculateSize(m_shape); }
     const Shape& shape() const { return m_shape; }
@@ -165,12 +167,12 @@ public:
     Size size() const { return NDArray::calculateSize(m_shape); }
 
     Type& operator[](const Index index) { return m_ndarray[calculateRawIndexFromSliceIndexUnchecked(index)]; }
-    const Type& operator[](const Index index) const {
+    ConstType& operator[](const Index index) const {
         return m_ndarray[calculateRawIndexFromSliceIndexUnchecked(index)];
     }
 
     Type& operator[](const Position& position) { return m_ndarray[calculateRawIndexFromPositionUnchecked(position)]; }
-    const Type& operator[](const Position& position) const {
+    ConstType& operator[](const Position& position) const {
         return m_ndarray[calculateRawIndexFromPositionUnchecked(position)];
     }
 
