@@ -55,12 +55,19 @@ concept NDArrayLike = requires(T a) {
     typename T::Shape;
     typename T::Strides;
     typename T::Position;
+    typename T::Iterator;
+    typename T::ConstIterator;
 
     { a[Index{0}] } -> std::common_reference_with<typename T::Type>;
     { a[typename T::Position{0}] } -> std::common_reference_with<typename T::Type>;
     { a.empty() } -> std::same_as<bool>;
     { a.shape() } -> std::common_reference_with<typename T::Shape>;
     { a.strides() } -> std::common_reference_with<typename T::Strides>;
+
+    { a.begin() } -> std::same_as<typename T::Iterator>;
+    { const_cast<const T&>(a).begin() } -> std::same_as<typename T::ConstIterator>;
+    { a.end() } -> std::same_as<typename T::Iterator>;
+    { const_cast<const T&>(a).end() } -> std::same_as<typename T::ConstIterator>;
 };
 
 template<NDArrayLike NDT>
