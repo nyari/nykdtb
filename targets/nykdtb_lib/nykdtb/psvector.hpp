@@ -115,6 +115,18 @@ public:
         ++m_currentSize;
     }
 
+    inline void resize(Size newSize, T init) {
+        const Size oldSize = m_currentSize;
+        for (Index i = newSize; i < oldSize; ++i) {
+            ptr(i)->~T();
+        }
+        m_currentSize = newSize;
+        ensureAllocatedSize(m_currentSize);
+        for (Index i = oldSize; i < newSize; ++i) {
+            new (ptr(i)) T{init};
+        }
+    }
+
     inline Pointer erase(Pointer intervalBegin, Pointer intervalEnd);
     inline Pointer erase(Pointer elementIt) { return erase(elementIt, elementIt + 1); }
 

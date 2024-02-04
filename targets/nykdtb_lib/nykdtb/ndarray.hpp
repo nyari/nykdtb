@@ -123,6 +123,21 @@ public:
         return this->operator[](calculateRawIndexUnchecked(m_strides, pos));
     }
 
+    void reshape(Shape shape) {
+        if (shape.shapeSize() != m_shape.shapeSize()) {
+            throw ShapeDoesNotMatchSize();
+        }
+
+        m_shape   = mmove(shape);
+        m_strides = calculateStrides(m_shape);
+    }
+
+    void resize(Shape newShape, T init) {
+        m_storage.resize(newShape.shapeSize(), mmove(init));
+        m_shape   = mmove(newShape);
+        m_strides = calculateStrides(m_shape);
+    }
+
 public:
     static constexpr Strides calculateStrides(const Shape& shape) {
         Strides strides(shape);
@@ -156,12 +171,13 @@ private:
 template<NDArrayLike NDT>
 class NDArraySlice {
 public:
-    using NDArray    = NDT;
-    using ArrayType  = typename NDArray::Type;
-    using SliceShape = typename NDArray::SliceShape;
-    using Shape      = typename NDArray::Shape;
-    using Strides    = typename NDArray::Strides;
-    using Position   = typename NDArray::Position;
+    using NDArray     = NDT;
+    using NDArrayType = std::remove_cvref_t<NDArray>;
+    using ArrayType   = typename NDArray::Type;
+    using SliceShape  = typename NDArray::SliceShape;
+    using Shape       = typename NDArray::Shape;
+    using Strides     = typename NDArray::Strides;
+    using Position    = typename NDArray::Position;
 
     static constexpr bool isConstArray = std::is_const_v<NDArray>;
     using Type      = std::conditional<isConstArray, std::add_const_t<typename NDArray::Type>, typename NDArray::Type>;
@@ -187,6 +203,8 @@ public:
     const SliceShape& sliceShape() const { return m_sliceShape; }
     const Strides& strides() const { return m_strides; }
     Size size() const { return m_shape.shapeSize(); }
+
+    NDArrayType materialize() const { return NDArrayType{{begin(), end()}, m_shape}; }
 
     Iterator begin() { return Iterator(*this); }
     ConstIterator begin() const { return ConstIterator(*this); }
