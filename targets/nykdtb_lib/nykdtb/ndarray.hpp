@@ -20,9 +20,9 @@ struct NDArrayShape : public PSVec<Size, STACK_SIZE> {
 
         for (Index i = 0, j = 0; i < me.size() && j < other.size(); ++i, ++j) {
             if (me[i] != other[j]) {
-                if (me[i] == 1 && other[j] != 1) {
+                if (me[i] == 1 && other[j] != 1) [[unlikely]] {
                     --j;
-                } else if (me[i] != 1 && other[j] == 1) {
+                } else if (me[i] != 1 && other[j] == 1) [[unlikely]] {
                     --i;
                 } else {
                     return false;
