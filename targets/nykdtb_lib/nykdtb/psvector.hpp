@@ -1,6 +1,7 @@
 #ifndef NYKDTB_PSVECTOR_HPP
 #define NYKDTB_PSVECTOR_HPP
 
+#include <functional>
 #include <type_traits>
 #include <utility>
 
@@ -38,6 +39,16 @@ public:
     inline PartialStackStorageVector(PartialStackStorageVector&& other);
     inline PartialStackStorageVector& operator=(const PartialStackStorageVector& other);
     inline PartialStackStorageVector& operator=(PartialStackStorageVector&& other);
+
+    static inline PartialStackStorageVector constructFilled(Size size, const T& input) {
+        PartialStackStorageVector result;
+        result.ensureAllocatedSize(size);
+        result.m_currentSize = size;
+        for (auto& value : result) {
+            new (&value) T{input};
+        }
+        return mmove(result);
+    }
 
     inline bool operator==(const PartialStackStorageVector& rhs) const {
         if (size() != rhs.size()) {
@@ -100,6 +111,18 @@ public:
     template<typename SIter>
     inline Pointer insert(Pointer before, SIter first, SIter last);
     inline Pointer insert(Pointer before, const T& value) { return insert(before, &value, (&value) + 1); }
+
+    inline void forEach(std::function<void(T&)> mutator) {
+        for (auto& item : *this) {
+            mutator(item);
+        }
+    }
+
+    inline void forEach(std::function<void(const T&)> accessor) {
+        for (const auto& item : *this) {
+            accessor(item);
+        }
+    };
 
     inline T& operator[](const Index i) { return *ptr(i); }
     inline const T& operator[](const Index i) const { return *ptr(i); }

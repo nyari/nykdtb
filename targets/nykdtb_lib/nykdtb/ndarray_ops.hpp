@@ -13,8 +13,12 @@ void addAssign(LHS& lhs, const RHS& rhs) {
         throw ShapesDoNotMatch();
     }
 
-    for (Index i = 0; i < lhs.size(); ++i) {
-        lhs[i] += rhs[i];
+    auto lhsBegin = lhs.begin();
+    auto lhsEnd   = lhs.end();
+    auto rhsIt    = rhs.begin();
+
+    for (auto lhsIt = lhsBegin; lhsIt < lhsEnd; ++lhsIt, ++rhsIt) {
+        *lhsIt += *rhsIt;
     }
 }
 

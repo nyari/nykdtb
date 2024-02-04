@@ -57,13 +57,15 @@ class NDArraySlice;
 template<typename T, typename Params>
 class NDArrayBase {
 public:
-    using Type       = T;
-    using Shape      = NDArrayShape<Params::SHAPE_STACK_SIZE>;
-    using Strides    = PSVec<Size, Params::SHAPE_STACK_SIZE>;
-    using Position   = PSVec<Index, Params::SHAPE_STACK_SIZE>;
-    using Storage    = PSVec<T, Params::STACK_SIZE>;
-    using SliceShape = PSVec<IndexRange, Params::SHAPE_STACK_SIZE>;
-    using Parameters = Params;
+    using Type          = T;
+    using Shape         = NDArrayShape<Params::SHAPE_STACK_SIZE>;
+    using Strides       = PSVec<Size, Params::SHAPE_STACK_SIZE>;
+    using Position      = PSVec<Index, Params::SHAPE_STACK_SIZE>;
+    using Storage       = PSVec<T, Params::STACK_SIZE>;
+    using SliceShape    = PSVec<IndexRange, Params::SHAPE_STACK_SIZE>;
+    using Parameters    = Params;
+    using Iterator      = Type*;
+    using ConstIterator = const Type*;
 
     NYKDTB_DEFINE_EXCEPTION_CLASS(ShapeDoesNotMatchSize, LogicException)
 
@@ -89,6 +91,11 @@ public:
     const Shape& shape() const { return m_shape; }
     const Strides& strides() const { return m_strides; }
     Size size() const { return static_cast<Size>(m_storage.size()); }
+
+    Iterator begin() { return m_storage.begin(); }
+    ConstIterator begin() const { return m_storage.begin(); }
+    Iterator end() { return m_storage.end(); }
+    ConstIterator end() const { return m_storage.end(); }
 
     T& operator[](Index index) { return m_storage[index]; }
     const T& operator[](Index index) const { return m_storage[index]; }
@@ -142,14 +149,22 @@ private:
 template<NDArrayLike NDT>
 class NDArraySlice {
 public:
-    using NDArray                      = NDT;
-    using SliceShape                   = typename NDArray::SliceShape;
-    using Shape                        = typename NDArray::Shape;
-    using Strides                      = typename NDArray::Strides;
-    using Position                     = typename NDArray::Position;
+    using NDArray    = NDT;
+    using ArrayType  = typename NDArray::Type;
+    using SliceShape = typename NDArray::SliceShape;
+    using Shape      = typename NDArray::Shape;
+    using Strides    = typename NDArray::Strides;
+    using Position   = typename NDArray::Position;
+
     static constexpr bool isConstArray = std::is_const_v<NDArray>;
     using Type      = std::conditional<isConstArray, std::add_const_t<typename NDArray::Type>, typename NDArray::Type>;
-    using ConstType = const std::remove_const_t<typename NDArray::Type>;
+    using ConstType = const std::remove_cvref_t<typename NDArray::Type>;
+
+    template<typename T>
+    class IteratorBase;
+
+    using Iterator      = IteratorBase<NDArraySlice>;
+    using ConstIterator = IteratorBase<const std::remove_cvref_t<NDArraySlice>>;
 
     NYKDTB_DEFINE_EXCEPTION_CLASS(InvalidSliceShape, LogicException)
 
@@ -165,6 +180,11 @@ public:
     const SliceShape& sliceShape() const { return m_sliceShape; }
     const Strides& strides() const { return m_strides; }
     Size size() const { return NDArray::calculateSize(m_shape); }
+
+    Iterator begin() { return Iterator(*this); }
+    ConstIterator begin() const { return ConstIterator(*this); }
+    Iterator end() { return Iterator(*this, Iterator::End); }
+    ConstIterator end() const { return ConstIterator(*this, ConstIterator::End); }
 
     Type& operator[](const Index index) { return m_ndarray[calculateRawIndexFromSliceIndexUnchecked(index)]; }
     ConstType& operator[](const Index index) const {
@@ -229,6 +249,71 @@ private:
     const SliceShape m_sliceShape;
     const Shape m_shape;
     const Strides m_strides;
+
+public:
+    template<typename T>
+    class IteratorBase {
+    public:
+        enum EndPlacement { End };
+
+        using Type      = std::remove_cvref_t<typename T::ArrayType>;
+        using ConstType = const Type;
+        using Position  = typename T::Position;
+
+    public:
+        IteratorBase(T& slice)
+            : m_slice(slice),
+              m_pos{Position::constructFilled(m_slice.shape().size(), 0)},
+              m_rawIndex{m_slice.calculateRawIndexFromPositionUnchecked(m_pos)} {}
+        IteratorBase(T& slice, EndPlacement)
+            : m_slice(slice), m_pos{m_slice.shape()}, m_rawIndex{0} {
+            m_pos.forEach([](auto& item) { --item; });
+            m_rawIndex = m_slice.calculateRawIndexFromPositionUnchecked(m_pos);
+        }
+
+        IteratorBase& operator++() {
+            advanceOne();
+            return *this;
+        }
+
+        IteratorBase operator++(int) {
+            IteratorBase copy(*this);
+            advanceOne();
+            return mmove(copy);
+        }
+
+        Type& operator*() { return m_slice.m_ndarray[m_rawIndex]; }
+        ConstType& operator*() const { return m_slice.m_ndarray[m_rawIndex]; }
+        Type* operator->() { return &m_slice.m_ndarray[m_rawIndex]; }
+        ConstType* operator->() const { return &m_slice.m_ndarray[m_rawIndex]; }
+
+        bool operator==(const IteratorBase& other) const { return m_rawIndex == other.m_rawIndex; }
+        bool operator!=(const IteratorBase& other) const { return m_rawIndex != other.m_rawIndex; }
+        bool operator<(const IteratorBase& other) const { return m_rawIndex < other.m_rawIndex; }
+        bool operator<=(const IteratorBase& other) const { return m_rawIndex <= other.m_rawIndex; }
+
+    private:
+        void advanceOne() {
+            bool recalculateRaw = false;
+            for (Index i = m_pos.size() - 1; i >= 0; --i) {
+                if (++m_pos[i] >= m_slice.shape()[i]) [[unlikely]] {
+                    recalculateRaw = true;
+                    m_pos[i]       = 0;
+                } else [[likely]] {
+                    ++m_rawIndex;
+                    break;
+                }
+            }
+            if (recalculateRaw) [[unlikely]] {
+                m_rawIndex = m_slice.calculateRawIndexFromPositionUnchecked(m_pos);
+            }
+        }
+
+    private:
+        T & m_slice;
+        Position m_pos;
+        Index m_rawIndex;
+    };
 };
 
 struct DefaultNDArrayParams {
