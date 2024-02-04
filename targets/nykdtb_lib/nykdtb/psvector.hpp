@@ -2,6 +2,7 @@
 #define NYKDTB_PSVECTOR_HPP
 
 #include <functional>
+#include <memory>
 #include <type_traits>
 #include <utility>
 
@@ -9,7 +10,7 @@
 
 namespace nykdtb {
 
-template<typename T, Size STACK_SIZE>
+template<typename T, Size STACK_SIZE, Size ALIGNMENT = alignof(T)>
 class PartialStackStorageVector {
 public:
     NYKDTB_DEFINE_EXCEPTION_CLASS(IncorrectSizeAllocation, LogicException)
@@ -29,6 +30,9 @@ public:
     };
     static constexpr auto copyConstruct = [](T& lhs, const T& rhs) { new (&lhs) T{rhs}; };
     static constexpr auto copyAssign    = [](T& lhs, const T& rhs) { lhs = rhs; };
+
+    static constexpr T* aaligned(T* p) { return std::assume_aligned<ALIGNMENT>(p); }
+    static constexpr const T* aaligned(const T* p) { return std::assume_aligned<ALIGNMENT>(p); }
 
 public:
     inline PartialStackStorageVector();
@@ -82,22 +86,22 @@ public:
 
     inline Pointer begin() {
         if (onStack()) {
-            return stackBegin();
+            return aaligned(stackBegin());
         } else {
-            return &m_heapStorage[0];
+            return aaligned(&m_heapStorage[0]);
         }
     }
 
     inline ConstPointer begin() const {
         if (onStack()) {
-            return stackBegin();
+            return aaligned(stackBegin());
         } else {
-            return &m_heapStorage[0];
+            return aaligned(&m_heapStorage[0]);
         }
     }
 
-    inline Pointer ptr(const Index idx) { return &begin()[idx]; }
-    inline ConstPointer ptr(const Index idx) const { return &begin()[idx]; }
+    inline Pointer ptr(const Index idx) { return aaligned(&begin()[idx]); }
+    inline ConstPointer ptr(const Index idx) const { return aaligned(&begin()[idx]); }
 
     inline Pointer end() { return ptr(m_currentSize); }
     inline ConstPointer end() const { return ptr(m_currentSize); }
@@ -158,8 +162,8 @@ public:
     inline bool empty() const { return m_currentSize == 0; }
 
 private:
-    inline Pointer stackBegin() { return reinterpret_cast<Pointer>(&m_stackStorage[0]); }
-    inline ConstPointer stackBegin() const { return reinterpret_cast<ConstPointer>(&m_stackStorage[0]); }
+    inline Pointer stackBegin() { return aaligned(reinterpret_cast<Pointer>(&m_stackStorage[0])); }
+    inline ConstPointer stackBegin() const { return aaligned(reinterpret_cast<ConstPointer>(&m_stackStorage[0])); }
 
     inline void ensureAllocatedSize(const Size size, const Size mtp = 2) {
         if (m_currentSize > size) throw IncorrectSizeAllocation();
@@ -180,7 +184,7 @@ private:
     }
 
     static inline Pointer allocateMemory(const Size elemCount) {
-        return reinterpret_cast<Pointer>(std::malloc(elemCount * sizeof(T)));
+        return reinterpret_cast<Pointer>(std::aligned_alloc(ALIGNMENT, elemCount * sizeof(T)));
     }
 
     static inline void free(Pointer ptr) { std::free(ptr); }
@@ -208,14 +212,20 @@ private:
     }
 
     template<typename PS, typename PT, typename Op>
-    inline void transfer(PS begin, PS end, PT target, Op op) {
+    inline void transfer(PS begin_, PS end_, PT target_, Op op) {
+        auto begin  = aaligned(begin_);
+        auto end    = aaligned(end_);
+        auto target = aaligned(target_);
         for (auto i = begin; i < end; ++i) {
             op(*(target++), std::move(*i));
         }
     }
 
     template<typename PS, typename PT, typename Op>
-    inline void reverseTransfer(PS begin, PS end, PT target, Op op) {
+    inline void reverseTransfer(PS begin_, PS end_, PT target_, Op op) {
+        auto begin  = aaligned(begin_);
+        auto end    = aaligned(end_);
+        auto target = aaligned(target_);
         --target;
         --begin;
         for (auto i = begin; i >= end; --i) {
@@ -223,7 +233,9 @@ private:
         }
     }
 
-    inline void destruct(Pointer begin, Pointer end) {
+    inline void destruct(Pointer begin_, Pointer end_) {
+        auto begin = aaligned(begin_);
+        auto end   = aaligned(end_);
         for (auto it = begin; it < end; ++it) {
             it->~T();
         }
@@ -233,16 +245,16 @@ private:
     Size m_currentSize;
     Size m_allocatedSize;
     T* m_heapStorage;
-    alignas(T) uint8_t m_stackStorage[sizeof(T) * STACK_SIZE];
+    alignas(ALIGNMENT) uint8_t m_stackStorage[sizeof(T) * STACK_SIZE];
 };
 
-template<typename T, Size STACK_SIZE>
-inline PartialStackStorageVector<T, STACK_SIZE>::PartialStackStorageVector()
+template<typename T, Size STACK_SIZE, Size ALIGNMENT>
+inline PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>::PartialStackStorageVector()
     : m_currentSize(0), m_allocatedSize(STACK_SIZE), m_heapStorage(nullptr) {}
 
-template<typename T, Size STACK_SIZE>
+template<typename T, Size STACK_SIZE, Size ALIGNMENT>
 template<typename Iter, typename Op>
-inline PartialStackStorageVector<T, STACK_SIZE>::PartialStackStorageVector(Iter _begin, Iter _end, Op op)
+inline PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>::PartialStackStorageVector(Iter _begin, Iter _end, Op op)
     : m_currentSize(0), m_allocatedSize(STACK_SIZE), m_heapStorage(nullptr) {
     const Size targetSize = static_cast<Size>(_end - _begin);
     ensureAllocatedSize(targetSize);
@@ -250,20 +262,21 @@ inline PartialStackStorageVector<T, STACK_SIZE>::PartialStackStorageVector(Iter 
     m_currentSize = targetSize;
 }
 
-template<typename T, Size STACK_SIZE>
-inline PartialStackStorageVector<T, STACK_SIZE>::PartialStackStorageVector(std::initializer_list<T> init)
+template<typename T, Size STACK_SIZE, Size ALIGNMENT>
+inline PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>::PartialStackStorageVector(std::initializer_list<T> init)
     : PartialStackStorageVector(init.begin(), init.end()) {}
 
-template<typename T, Size STACK_SIZE>
-inline PartialStackStorageVector<T, STACK_SIZE>::PartialStackStorageVector(const PartialStackStorageVector& other)
+template<typename T, Size STACK_SIZE, Size ALIGNMENT>
+inline PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>::PartialStackStorageVector(
+    const PartialStackStorageVector& other)
     : m_currentSize(0), m_allocatedSize(STACK_SIZE), m_heapStorage(nullptr) {
     ensureAllocatedSize(other.m_currentSize);
     transfer(other.begin(), other.end(), begin(), copyConstruct);
     m_currentSize = other.m_currentSize;
 }
 
-template<typename T, Size STACK_SIZE>
-inline PartialStackStorageVector<T, STACK_SIZE>::PartialStackStorageVector(PartialStackStorageVector&& other)
+template<typename T, Size STACK_SIZE, Size ALIGNMENT>
+inline PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>::PartialStackStorageVector(PartialStackStorageVector&& other)
     : m_currentSize(other.m_currentSize), m_allocatedSize(STACK_SIZE), m_heapStorage(nullptr) {
     if (other.onStack()) {
         transfer(other.begin(), other.end(), begin(), moveConstruct);
@@ -276,9 +289,9 @@ inline PartialStackStorageVector<T, STACK_SIZE>::PartialStackStorageVector(Parti
     other.m_allocatedSize = 0;
 }
 
-template<typename T, Size STACK_SIZE>
-inline PartialStackStorageVector<T, STACK_SIZE>& PartialStackStorageVector<T, STACK_SIZE>::operator=(
-    const PartialStackStorageVector& other) {
+template<typename T, Size STACK_SIZE, Size ALIGNMENT>
+inline PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>&
+PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>::operator=(const PartialStackStorageVector& other) {
     const Size commonPartSize = std::min(m_currentSize, other.m_currentSize);
 
     ensureAllocatedSize(other.m_currentSize);
@@ -290,9 +303,9 @@ inline PartialStackStorageVector<T, STACK_SIZE>& PartialStackStorageVector<T, ST
     return *this;
 }
 
-template<typename T, Size STACK_SIZE>
-inline PartialStackStorageVector<T, STACK_SIZE>& PartialStackStorageVector<T, STACK_SIZE>::operator=(
-    PartialStackStorageVector&& other) {
+template<typename T, Size STACK_SIZE, Size ALIGNMENT>
+inline PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>&
+PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>::operator=(PartialStackStorageVector&& other) {
     if (other.onStack()) {
         const Size commonPartSize = std::min(m_currentSize, other.m_currentSize);
 
@@ -313,17 +326,17 @@ inline PartialStackStorageVector<T, STACK_SIZE>& PartialStackStorageVector<T, ST
     return *this;
 }
 
-template<typename T, Size STACK_SIZE>
-inline PartialStackStorageVector<T, STACK_SIZE>::~PartialStackStorageVector() {
+template<typename T, Size STACK_SIZE, Size ALIGNMENT>
+inline PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>::~PartialStackStorageVector() {
     destruct(begin(), end());
     if (!onStack()) {
         free(m_heapStorage);
     }
 }
 
-template<typename T, Size STACK_SIZE>
-inline typename PartialStackStorageVector<T, STACK_SIZE>::Pointer PartialStackStorageVector<T, STACK_SIZE>::erase(
-    Pointer intervalBegin, Pointer intervalEnd) {
+template<typename T, Size STACK_SIZE, Size ALIGNMENT>
+inline typename PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>::Pointer
+PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>::erase(Pointer intervalBegin, Pointer intervalEnd) {
     Pointer originalEnd          = this->end();
     Size erasedElemCount         = static_cast<Size>(intervalEnd - intervalBegin);
     Pointer endIteratorAfterMove = originalEnd - erasedElemCount;
@@ -337,10 +350,10 @@ inline typename PartialStackStorageVector<T, STACK_SIZE>::Pointer PartialStackSt
     return intervalBegin;
 }
 
-template<typename T, Size STACK_SIZE>
+template<typename T, Size STACK_SIZE, Size ALIGNMENT>
 template<typename SIter>
-inline typename PartialStackStorageVector<T, STACK_SIZE>::Pointer PartialStackStorageVector<T, STACK_SIZE>::insert(
-    Pointer before, SIter first, SIter last) {
+inline typename PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>::Pointer
+PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>::insert(Pointer before, SIter first, SIter last) {
     Size insertedElemCount = static_cast<Size>(last - first);
     Index beforeIndex      = before - begin();
     ensureAllocatedSize(m_currentSize + insertedElemCount);
@@ -354,8 +367,8 @@ inline typename PartialStackStorageVector<T, STACK_SIZE>::Pointer PartialStackSt
     return before;
 }
 
-template<typename T, Size STACK_SIZE>
-using PSVec = PartialStackStorageVector<T, STACK_SIZE>;
+template<typename T, Size STACK_SIZE, Size ALIGNMENT = alignof(T)>
+using PSVec = PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>;
 
 template<typename T>
 using PSVec8 = PartialStackStorageVector<T, 8>;
