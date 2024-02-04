@@ -50,6 +50,16 @@ public:
         return mmove(result);
     }
 
+    inline PartialStackStorageVector transformed(std::function<T(T)> transformer) {
+        PartialStackStorageVector result;
+        result.ensureAllocatedSize(size());
+        result.m_currentSize = size();
+        for (Index i = 0; i < size(); ++i) {
+            new (&result[i]) T{transformer((*this)[i])};
+        }
+        return mmove(result);
+    }
+
     inline bool operator==(const PartialStackStorageVector& rhs) const {
         if (size() != rhs.size()) {
             return false;

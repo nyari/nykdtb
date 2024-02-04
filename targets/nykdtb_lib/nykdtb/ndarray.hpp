@@ -266,10 +266,9 @@ public:
               m_pos{Position::constructFilled(m_slice.shape().size(), 0)},
               m_rawIndex{m_slice.calculateRawIndexFromPositionUnchecked(m_pos)} {}
         IteratorBase(T& slice, EndPlacement)
-            : m_slice(slice), m_pos{m_slice.shape()}, m_rawIndex{0} {
-            m_pos.forEach([](auto& item) { --item; });
-            m_rawIndex = m_slice.calculateRawIndexFromPositionUnchecked(m_pos);
-        }
+            : m_slice(slice),
+              m_pos{m_slice.transformed([](const auto& item) { return item - 1; })},
+              m_rawIndex{m_slice.calculateRawIndexFromPositionUnchecked(m_pos)} {}
 
         IteratorBase& operator++() {
             advanceOne();
