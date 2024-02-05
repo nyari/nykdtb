@@ -67,7 +67,7 @@ struct EqualTo {
 
 }  // namespace type_info
 
-#define NYKDTB_DEFINE_EXCEPTION_CLASS(classname, superclass)                                        \
+#define NYKDTB_DEFINE_EXCEPTION_CLASS(classname, superclass)                                         \
     struct classname : public superclass {                                                           \
         classname()                                                                                  \
             : superclass(std::string("[") + std::string(#classname) + std::string("]")) {}           \

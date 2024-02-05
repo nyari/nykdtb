@@ -173,15 +173,15 @@ class NDArraySlice {
 public:
     using NDArray     = NDT;
     using NDArrayType = std::remove_cvref_t<NDArray>;
-    using ArrayType   = typename NDArray::Type;
+    using Type        = typename NDArray::Type;
     using SliceShape  = typename NDArray::SliceShape;
     using Shape       = typename NDArray::Shape;
     using Strides     = typename NDArray::Strides;
     using Position    = typename NDArray::Position;
 
     static constexpr bool isConstArray = std::is_const_v<NDArray>;
-    using Type      = std::conditional<isConstArray, std::add_const_t<typename NDArray::Type>, typename NDArray::Type>;
-    using ConstType = const std::remove_cvref_t<typename NDArray::Type>;
+    using MutType                      = std::conditional_t<isConstArray, std::add_const_t<Type>, Type>;
+    using ConstType                    = const std::remove_cvref_t<Type>;
 
     template<typename T>
     class IteratorBase;
@@ -211,12 +211,14 @@ public:
     Iterator end() { return Iterator(*this, Iterator::End); }
     ConstIterator end() const { return ConstIterator(*this, ConstIterator::End); }
 
-    Type& operator[](const Index index) { return m_ndarray[calculateRawIndexFromSliceIndexUnchecked(index)]; }
+    MutType& operator[](const Index index) { return m_ndarray[calculateRawIndexFromSliceIndexUnchecked(index)]; }
     ConstType& operator[](const Index index) const {
         return m_ndarray[calculateRawIndexFromSliceIndexUnchecked(index)];
     }
 
-    Type& operator[](const Position& position) { return m_ndarray[calculateRawIndexFromPositionUnchecked(position)]; }
+    MutType& operator[](const Position& position) {
+        return m_ndarray[calculateRawIndexFromPositionUnchecked(position)];
+    }
     ConstType& operator[](const Position& position) const {
         return m_ndarray[calculateRawIndexFromPositionUnchecked(position)];
     }
@@ -281,7 +283,7 @@ public:
     public:
         enum EndPlacement { End };
 
-        using Type      = std::remove_cvref_t<typename T::ArrayType>;
+        using Type      = typename T::Type;
         using ConstType = const Type;
         using Position  = typename T::Position;
 
