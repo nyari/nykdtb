@@ -57,6 +57,23 @@ inline static void normalize(T& elem) {
     }
 }
 
+template<NDArrayLike LHS, NDArrayLike RHS>
+inline static typename LHS::Type dot(const LHS& lhs, const RHS& rhs) {
+    static_assert(std::is_same_v<typename LHS::T, typename RHS::T>,
+                  "This function needs to be called with NDArrays of the same internal type");
+    auto lhsBegin = lhs.begin();
+    auto lhsEnd   = lhs.end();
+    auto rhsIt    = rhs.begin();
+
+    typename LHS::Type result = 0;
+
+    for (auto lhsIt = lhsBegin; lhsIt < lhsEnd; ++lhsIt, ++rhsIt) {
+        result += (*lhsIt) * (*rhsIt);
+    }
+
+    return result;
+}
+
 template<NDArrayLike T>
 inline static T normalized(T elem) {
     normalize(elem);
