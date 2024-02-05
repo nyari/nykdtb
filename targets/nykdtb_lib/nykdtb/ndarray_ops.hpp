@@ -41,7 +41,7 @@ inline static void assign(LHS& lhs, const RHS& rhs) {
     auto rhsIt    = rhs.begin();
 
     for (auto lhsIt = lhsBegin; lhsIt < lhsEnd; ++lhsIt, ++rhsIt) {
-        lhsIt += rhsIt;
+        *lhsIt = *rhsIt;
     }
 }
 
