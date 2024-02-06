@@ -213,7 +213,7 @@ inline static typename T::MaterialType inverse(T input) {
 
     // Bottom half Gauss elimination
     for (Index leading = 0; leading < dim; ++leading) {
-        const auto leadingRowSelect = typename T::SliceShape{IndexRange::single(leading), IndexRange::e2e};
+        const auto leadingRowSelect = typename T::SliceShape{IndexRange::single(leading), IndexRange::e2e()};
         auto leadInputRow           = input.slice(leadingRowSelect);
         auto leadResultRow          = result.slice(leadingRowSelect);
         const auto leadValue        = leadInputRow[{0, leading}];
@@ -221,7 +221,7 @@ inline static typename T::MaterialType inverse(T input) {
         divAssignScalar(leadResultRow, leadValue);
 
         for (Index remaining = leading + 1; remaining < dim; ++remaining) {
-            const auto remainingRowSelect = typename T::SliceShape{IndexRange::single(remaining), IndexRange::e2e};
+            const auto remainingRowSelect = typename T::SliceShape{IndexRange::single(remaining), IndexRange::e2e()};
             auto remainingInputRow        = input.slice(remainingRowSelect);
             auto remainingResultRow       = result.slice(remainingRowSelect);
             const auto remainingValue     = remainingInputRow[{0, leading}];
