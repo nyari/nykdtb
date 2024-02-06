@@ -216,9 +216,9 @@ inline static typename T::MaterialType inverse(T input) {
         const auto leadingRowSelect = typename T::SliceShape{IndexRange::single(leading), IndexRange::e2e()};
         auto leadInputRow           = input.slice(leadingRowSelect);
         auto leadResultRow          = result.slice(leadingRowSelect);
-        const auto leadValue        = leadInputRow[{0, leading}];
-        divAssignScalar(leadInputRow, leadValue);
-        divAssignScalar(leadResultRow, leadValue);
+        const auto leadValue        = 1.0 / leadInputRow[{0, leading}];
+        mulAssignScalar(leadInputRow, leadValue);
+        mulAssignScalar(leadResultRow, leadValue);
 
         for (Index remaining = leading + 1; remaining < dim; ++remaining) {
             const auto remainingRowSelect = typename T::SliceShape{IndexRange::single(remaining), IndexRange::e2e()};
