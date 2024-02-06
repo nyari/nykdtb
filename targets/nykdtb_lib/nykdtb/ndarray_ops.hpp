@@ -8,6 +8,7 @@
 namespace nykdtb::nda {
 
 NYKDTB_DEFINE_EXCEPTION_CLASS(ShapesDoNotMatch, LogicException);
+NYKDTB_DEFINE_EXCEPTION_CLASS(SizesDoNotMatch, LogicException);
 
 template<NDArrayLike LHS, NDArrayLike RHS>
 inline static void addAssign(LHS& lhs, const RHS& rhs) {
@@ -61,6 +62,10 @@ template<NDArrayLike LHS, NDArrayLike RHS>
 inline static typename LHS::Type dot(const LHS& lhs, const RHS& rhs) {
     static_assert(std::is_same_v<typename LHS::T, typename RHS::T>,
                   "This function needs to be called with NDArrays of the same internal type");
+
+    if (lhs.size() != rhs.size()) {
+        throw SizesDoNotMatch();
+    }
     auto lhsBegin = lhs.begin();
     auto lhsEnd   = lhs.end();
     auto rhsIt    = rhs.begin();
@@ -82,7 +87,6 @@ inline static T normalized(T elem) {
 
 /*
 TODO list:
-* Dot product
 * Matrix inverse
 * Subtract
 * Cross product

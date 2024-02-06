@@ -63,6 +63,7 @@ concept NDArrayLike = requires(T a) {
     { a.empty() } -> std::same_as<bool>;
     { a.shape() } -> std::common_reference_with<typename T::Shape>;
     { a.strides() } -> std::common_reference_with<typename T::Strides>;
+    { a.size() } -> std::same_as<Size>;
 
     { a.begin() } -> std::same_as<typename T::Iterator>;
     { const_cast<const T&>(a).begin() } -> std::same_as<typename T::ConstIterator>;
