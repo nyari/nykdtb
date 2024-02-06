@@ -46,10 +46,13 @@ struct NDArrayShape : public PSVec<Size, STACK_SIZE> {
         }
         return result;
     }
+
+    Size dims() const { return this->size(); }
 };
 
 template<typename T>
 concept NDArrayLike = requires(T a) {
+    typename T::MaterialType;
     typename T::Type;
     typename T::SliceShape;
     typename T::Shape;
@@ -62,7 +65,9 @@ concept NDArrayLike = requires(T a) {
     { a[typename T::Position{0}] } -> std::common_reference_with<typename T::Type>;
     { a.empty() } -> std::same_as<bool>;
     { a.shape() } -> std::common_reference_with<typename T::Shape>;
+    { a.shape(Index{0}) } -> std::same_as<Size>;
     { a.strides() } -> std::common_reference_with<typename T::Strides>;
+    { a.stride(Index{0}) } -> std::same_as<Size>;
     { a.size() } -> std::same_as<Size>;
 
     { a.begin() } -> std::same_as<typename T::Iterator>;
@@ -78,6 +83,7 @@ template<typename T, typename Params>
 class NDArrayBase {
 public:
     using Type          = T;
+    using MaterialType  = NDArrayBase<T, Params>;
     using Shape         = NDArrayShape<Params::SHAPE_STACK_SIZE>;
     using Strides       = PSVec<Size, Params::SHAPE_STACK_SIZE>;
     using Position      = PSVec<Index, Params::SHAPE_STACK_SIZE>;
@@ -101,6 +107,7 @@ public:
             throw ShapeDoesNotMatchSize();
         }
     }
+    static NDArrayBase zeros(Shape shape) { return {Storage::constructFilled(shape.shapeSize(), 0), mmove(shape)}; }
 
     NDArrayBase(NDArrayBase&&)            = default;
     NDArrayBase& operator=(NDArrayBase&&) = default;
@@ -109,7 +116,9 @@ public:
 
     bool empty() const { return m_storage.empty(); }
     const Shape& shape() const { return m_shape; }
+    Size shape(const Index idx) const { return m_shape[idx]; }
     const Strides& strides() const { return m_strides; }
+    Size stride(const Index idx) const { return m_strides[idx]; }
     Size size() const { return static_cast<Size>(m_storage.size()); }
 
     Iterator begin() { return m_storage.begin(); }
@@ -172,13 +181,13 @@ private:
 template<NDArrayLike NDT>
 class NDArraySlice {
 public:
-    using NDArray     = NDT;
-    using NDArrayType = std::remove_cvref_t<NDArray>;
-    using Type        = typename NDArray::Type;
-    using SliceShape  = typename NDArray::SliceShape;
-    using Shape       = typename NDArray::Shape;
-    using Strides     = typename NDArray::Strides;
-    using Position    = typename NDArray::Position;
+    using NDArray      = NDT;
+    using MaterialType = std::remove_cvref_t<NDArray>;
+    using Type         = typename NDArray::Type;
+    using SliceShape   = typename NDArray::SliceShape;
+    using Shape        = typename NDArray::Shape;
+    using Strides      = typename NDArray::Strides;
+    using Position     = typename NDArray::Position;
 
     static constexpr bool isConstArray = std::is_const_v<NDArray>;
     using MutType                      = std::conditional_t<isConstArray, std::add_const_t<Type>, Type>;
@@ -201,11 +210,13 @@ public:
 
     bool empty() const { return m_shape.shapeSize(); }
     const Shape& shape() const { return m_shape; }
+    Size shape(const Index idx) const { return m_shape[idx]; }
     const SliceShape& sliceShape() const { return m_sliceShape; }
     const Strides& strides() const { return m_strides; }
+    Size stride(const Index idx) const { return m_strides[idx]; }
     Size size() const { return m_shape.shapeSize(); }
 
-    NDArrayType materialize() const { return NDArrayType{{begin(), end()}, m_shape}; }
+    MaterialType materialize() const { return MaterialType{{begin(), end()}, m_shape}; }
 
     Iterator begin() { return Iterator(*this); }
     ConstIterator begin() const { return ConstIterator(*this); }
