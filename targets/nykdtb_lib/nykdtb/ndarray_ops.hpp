@@ -211,22 +211,30 @@ inline static typename T::MaterialType inverse(T input) {
     Mx result      = identity(input.shape());
     const Size dim = input.shape(0);
 
-    // Bottom half Gauss elimination
-    for (Index leading = 0; leading < dim; ++leading) {
-        const auto leadingRowSelect = typename T::SliceShape{IndexRange::single(leading), IndexRange::e2e()};
-        auto leadInputRow           = input.slice(leadingRowSelect);
-        auto leadResultRow          = result.slice(leadingRowSelect);
-        const auto leadValue        = 1.0 / leadInputRow[{0, leading}];
-        mulAssignScalar(leadInputRow, leadValue);
-        mulAssignScalar(leadResultRow, leadValue);
+    for (Index round = 0; round < 2; ++round) {
+        const bool isBottomTriangle = round == 0;
+        const Index leadingStart    = isBottomTriangle ? 0 : dim - 1;
+        const auto cycleEnd         = isBottomTriangle ? [](const Index value) { return value < dim; }
+                                                       : [](const Index value) { return value >= 0; };
+        const auto cycleAdvance     = isBottomTriangle ? [](Index& value) { ++value; } : [](Index& value) { --value; };
+        const Index remainingOffset = isBottomTriangle ? 1 : -1;
 
-        for (Index remaining = leading + 1; remaining < dim; ++remaining) {
-            const auto remainingRowSelect = typename T::SliceShape{IndexRange::single(remaining), IndexRange::e2e()};
-            auto remainingInputRow        = input.slice(remainingRowSelect);
-            auto remainingResultRow       = result.slice(remainingRowSelect);
-            const auto remainingValue     = remainingInputRow[{0, leading}];
-            subAssign(remainingInputRow, ewMul(leadInputRow.materialize(), remainingValue));
-            subAssign(remainingResultRow, ewMul(leadResultRow.materialize(), remainingValue));
+        for (Index leading = leadingStart; cycleEnd(leading); cycleAdvance(leading)) {
+            const auto leadingRowSelect = typename T::SliceShape{IR::single(leading), IR::e2e()};
+            auto leadInputRow           = input.slice(leadingRowSelect);
+            auto leadResultRow          = result.slice(leadingRowSelect);
+            const auto leadValue        = 1.0 / leadInputRow[{0, leading}];
+            mulAssignScalar(leadInputRow, leadValue);
+            mulAssignScalar(leadResultRow, leadValue);
+
+            for (Index remaining = leading + remainingOffset; cycleEnd(remaining); cycleAdvance(remaining)) {
+                const auto remainingRowSelect = typename T::SliceShape{IR::single(remaining), IR::e2e()};
+                auto remainingInputRow        = input.slice(remainingRowSelect);
+                auto remainingResultRow       = result.slice(remainingRowSelect);
+                const auto remainingValue     = remainingInputRow[{0, leading}];
+                subAssign(remainingInputRow, ewMul(leadInputRow.materialize(), remainingValue));
+                subAssign(remainingResultRow, ewMul(leadResultRow.materialize(), remainingValue));
+            }
         }
     }
 
@@ -244,6 +252,7 @@ inline static T normalized(T elem) {
 /*
 TODO list:
 * Matrix inverse
+* Matrix multiplication
 * Cross product
 * Axis, rotation matrix creation
 */
