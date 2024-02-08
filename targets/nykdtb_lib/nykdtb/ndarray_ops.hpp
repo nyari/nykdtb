@@ -154,6 +154,12 @@ inline static void normalize(T& elem) {
     }
 }
 
+template<NDArrayLike T>
+inline static T normalized(T elem) {
+    normalize(elem);
+    return mmove(elem);
+}
+
 template<NDArrayLike LHS, NDArrayLike RHS>
 inline static typename LHS::Type dot(const LHS& lhs, const RHS& rhs) {
     static_assert(std::is_same_v<typename LHS::T, typename RHS::T>,
@@ -175,13 +181,37 @@ inline static typename LHS::Type dot(const LHS& lhs, const RHS& rhs) {
     return result;
 }
 
+template<NDArrayLike LHS, NDArrayLike RHS>
+inline static bool eq(const LHS& lhs, const RHS& rhs) {
+    if (lhs.shape() != rhs.shape()) {
+        return false;
+    }
+
+    auto lhsBegin = lhs.begin();
+    auto lhsEnd   = lhs.end();
+    auto rhsIt    = rhs.begin();
+
+    for (auto lhsIt = lhsBegin; lhsIt < lhsEnd; ++lhsIt, ++rhsIt) {
+        if ((*lhsIt) != (*rhsIt)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 namespace d2 {
 
 NYKDTB_DEFINE_EXCEPTION_CLASS(Matrix2DError, RuntimeException)
 
 template<NDArrayLike T>
+inline static bool is2d(const typename T::Shape& shape) {
+    return (shape.dims() == 2);
+}
+
+template<NDArrayLike T>
 inline static bool isSquare(const typename T::Shape& shape) {
-    return (shape.dims() == 2) && (shape[0] == shape[1]);
+    return is2d<T>(shape) && (shape[0] == shape[1]);
 }
 
 template<NDArrayLike T>
@@ -242,18 +272,35 @@ inline static typename T::MaterialType inverse(T input) {
     return mmove(result);
 }
 
-}  // namespace d2
+template<NDArrayLike LHS, NDArrayLike RHS, Size INTERLEAVE = 4>
+inline static typename LHS::MaterialType matMul(const LHS& lhs, const RHS& rhs) {
+    if (!is2d<LHS>(lhs.shape()) || !is2d<RHS>(rhs.shape())) {
+        throw Matrix2DError("Only 2D matrices are multipliable");
+    }
+    if (lhs.shape(0) != rhs.shape(1)) {
+        throw Matrix2DError("Incorrect shape for matrix multiplication");
+    }
 
-template<NDArrayLike T>
-inline static T normalized(T elem) {
-    normalize(elem);
-    return mmove(elem);
+    const typename LHS::Shape resultShape{lhs.shape(0), rhs.shape(1)};
+    auto result = LHS::MaterialType::zeros(resultShape);
+
+    for (Index resultRow = 0; resultRow < resultShape[0]; ++resultRow) {
+        for (Index resultColumn = 0; resultColumn < resultShape[1]; ++resultColumn) {
+            for (Index sourceColumn = 0; sourceColumn < lhs.shape(1); ++sourceColumn) {
+                const auto lhsValue = lhs[{resultRow, sourceColumn}];
+                const auto rhsValue = rhs[{sourceColumn, resultColumn}];
+                result[{resultRow, resultColumn}] += lhsValue * rhsValue;
+            }
+        }
+    }
+
+    return mmove(result);
 }
+
+}  // namespace d2
 
 /*
 TODO list:
-* Matrix inverse
-* Matrix multiplication
 * Cross product
 * Axis, rotation matrix creation
 */

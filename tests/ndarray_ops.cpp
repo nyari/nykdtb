@@ -15,3 +15,20 @@ TEST_CASE("NDArray matrix inverse", "[ndarray][matrix]") {
     REQUIRE(result[{1, 0}] == 1.5);
     REQUIRE(result[{1, 1}] == -0.5);
 }
+
+TEST_CASE("NDArray matrix multiplication", "[ndarray][matrix]") {
+    /*
+                6   5   4
+                3   2   1
+        1   2   12  9   6
+        3   4   30  23  16
+        5   6   48  37  26
+    */
+
+    const TestArray lhs{{1, 2, 3, 4, 5, 6}, {3, 2}};
+    const TestArray rhs{{6, 5, 4, 3, 2, 1}, {2, 3}};
+
+    const auto result = nda::d2::matMul(lhs, rhs);
+
+    REQUIRE(nda::eq(result, TestArray{{12, 9, 6, 30, 23, 16, 48, 37, 26}, {3, 3}}));
+}
