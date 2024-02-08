@@ -86,56 +86,55 @@ inline static void assign(LHS& lhs, const RHS& rhs) {
 }
 
 template<NDArrayLike T, typename F>
-inline static void baseAssignWithScalar(T& lhs, typename T::Type& rhs, F op) {
+inline static void baseAssignWithScalar(T& lhs, const typename T::Type& rhs, F op) {
     auto lhsBegin = lhs.begin();
     auto lhsEnd   = lhs.end();
-    auto rhsIt    = rhs.begin();
 
-    for (auto lhsIt = lhsBegin; lhsIt < lhsEnd; ++lhsIt, ++rhsIt) {
+    for (auto lhsIt = lhsBegin; lhsIt < lhsEnd; ++lhsIt) {
         op(*lhsIt, rhs);
     }
 }
 
 template<NDArrayLike T>
-inline static void addAssignScalar(T& lhs, typename T::Type& rhs) {
+inline static void addAssignScalar(T& lhs, const typename T::Type& rhs) {
     baseAssignWithScalar(lhs, rhs, [](auto& lhs, const auto& rhs) { lhs += rhs; });
 }
 
 template<NDArrayLike T>
-inline static void addScalar(T lhs, typename T::Type& rhs) {
+inline static T addScalar(T lhs, const typename T::Type& rhs) {
     addAssignScalar(lhs, rhs);
     return mmove(lhs);
 }
 
 template<NDArrayLike T>
-inline static void subAssignScalar(T& lhs, typename T::Type& rhs) {
+inline static void subAssignScalar(T& lhs, const typename T::Type& rhs) {
     baseAssignWithScalar(lhs, rhs, [](auto& lhs, const auto& rhs) { lhs -= rhs; });
 }
 
 template<NDArrayLike T>
-inline static void subScalar(T lhs, typename T::Type& rhs) {
+inline static T subScalar(T lhs, const typename T::Type& rhs) {
     subAssignScalar(lhs, rhs);
     return mmove(lhs);
 }
 
 template<NDArrayLike T>
-inline static void mulAssignScalar(T& lhs, typename T::Type& rhs) {
+inline static void mulAssignScalar(T& lhs, const typename T::Type& rhs) {
     baseAssignWithScalar(lhs, rhs, [](auto& lhs, const auto& rhs) { lhs *= rhs; });
 }
 
 template<NDArrayLike T>
-inline static void mulScalar(T lhs, typename T::Type& rhs) {
+inline static T mulScalar(T lhs, const typename T::Type& rhs) {
     mulAssignScalar(lhs, rhs);
     return mmove(lhs);
 }
 
 template<NDArrayLike T>
-inline static void divAssignScalar(T& lhs, typename T::Type& rhs) {
+inline static void divAssignScalar(T& lhs, const typename T::Type& rhs) {
     baseAssignWithScalar(lhs, rhs, [](auto& lhs, const auto& rhs) { lhs /= rhs; });
 }
 
 template<NDArrayLike T>
-inline static void divScalar(T lhs, typename T::Type& rhs) {
+inline static T divScalar(T lhs, const typename T::Type& rhs) {
     divAssignScalar(lhs, rhs);
     return mmove(lhs);
 }
@@ -188,7 +187,7 @@ inline static bool isSquare(const typename T::Shape& shape) {
 template<NDArrayLike T>
 inline static typename T::MaterialType identity(const typename T::Shape& shape) {
     using Mx = typename T::MaterialType;
-    if (!isSquare(shape)) {
+    if (!isSquare<T>(shape)) {
         throw Matrix2DError("Only 2D square matrices have identity");
     }
 
@@ -204,36 +203,38 @@ inline static typename T::MaterialType identity(const typename T::Shape& shape) 
 template<NDArrayLike T>
 inline static typename T::MaterialType inverse(T input) {
     using Mx = typename T::MaterialType;
-    if (!isSquare(input.shape())) {
+    if (!isSquare<T>(input.shape())) {
         throw Matrix2DError("Only 2D square matrices are invertable");
     }
 
-    Mx result      = identity(input.shape());
+    Mx result      = identity<T>(input.shape());
     const Size dim = input.shape(0);
 
     for (Index round = 0; round < 2; ++round) {
         const bool isBottomTriangle = round == 0;
         const Index leadingStart    = isBottomTriangle ? 0 : dim - 1;
-        const auto cycleEnd         = isBottomTriangle ? [](const Index value) { return value < dim; }
-                                                       : [](const Index value) { return value >= 0; };
+        const Index cycleEnd        = isBottomTriangle ? dim : 0;
+        const auto cycleEndCompare  = isBottomTriangle ? [](const Index lhs, const Index rhs) { return lhs < rhs; }
+                                                       : [](const Index lhs, const Index rhs) { return lhs >= rhs; };
         const auto cycleAdvance     = isBottomTriangle ? [](Index& value) { ++value; } : [](Index& value) { --value; };
         const Index remainingOffset = isBottomTriangle ? 1 : -1;
 
-        for (Index leading = leadingStart; cycleEnd(leading); cycleAdvance(leading)) {
+        for (Index leading = leadingStart; cycleEndCompare(leading, cycleEnd); cycleAdvance(leading)) {
             const auto leadingRowSelect = typename T::SliceShape{IR::single(leading), IR::e2e()};
-            auto leadInputRow           = input.slice(leadingRowSelect);
-            auto leadResultRow          = result.slice(leadingRowSelect);
-            const auto leadValue        = 1.0 / leadInputRow[{0, leading}];
+            NDArraySlice<T> leadInputRow(input, leadingRowSelect);
+            NDArraySlice<T> leadResultRow(result, leadingRowSelect);
+            const typename T::Type leadValue = 1.0 / leadInputRow[{0, leading}];
             mulAssignScalar(leadInputRow, leadValue);
             mulAssignScalar(leadResultRow, leadValue);
 
-            for (Index remaining = leading + remainingOffset; cycleEnd(remaining); cycleAdvance(remaining)) {
+            for (Index remaining = leading + remainingOffset; cycleEndCompare(remaining, cycleEnd);
+                 cycleAdvance(remaining)) {
                 const auto remainingRowSelect = typename T::SliceShape{IR::single(remaining), IR::e2e()};
-                auto remainingInputRow        = input.slice(remainingRowSelect);
-                auto remainingResultRow       = result.slice(remainingRowSelect);
-                const auto remainingValue     = remainingInputRow[{0, leading}];
-                subAssign(remainingInputRow, ewMul(leadInputRow.materialize(), remainingValue));
-                subAssign(remainingResultRow, ewMul(leadResultRow.materialize(), remainingValue));
+                NDArraySlice<T> remainingInputRow(input, remainingRowSelect);
+                NDArraySlice<T> remainingResultRow(result, remainingRowSelect);
+                const auto remainingValue = remainingInputRow[{0, leading}];
+                subAssign(remainingInputRow, mulScalar(leadInputRow.materialize(), remainingValue));
+                subAssign(remainingResultRow, mulScalar(leadResultRow.materialize(), remainingValue));
             }
         }
     }

@@ -306,7 +306,7 @@ public:
               m_rawIndex{m_slice.calculateRawIndexFromPositionUnchecked(m_pos)} {}
         IteratorBase(T& slice, EndPlacement)
             : m_slice(slice),
-              m_pos{m_slice.transformed([](const auto& item) { return item - 1; })},
+              m_pos{m_slice.shape().transformed([](const auto& item) { return item - 1; })},
               m_rawIndex{m_slice.calculateRawIndexFromPositionUnchecked(m_pos)} {}
 
         IteratorBase& operator++() {
@@ -329,6 +329,12 @@ public:
         bool operator!=(const IteratorBase& other) const { return m_rawIndex != other.m_rawIndex; }
         bool operator<(const IteratorBase& other) const { return m_rawIndex < other.m_rawIndex; }
         bool operator<=(const IteratorBase& other) const { return m_rawIndex <= other.m_rawIndex; }
+
+        Size operator-(const IteratorBase& other) const {
+            auto selfIndex  = T::MaterialType::calculateRawIndexUnchecked(m_slice.strides(), m_pos);
+            auto otherIndex = T::MaterialType::calculateRawIndexUnchecked(other.m_slice.strides(), other.m_pos);
+            return selfIndex - otherIndex;
+        }
 
     private:
         void advanceOne() {

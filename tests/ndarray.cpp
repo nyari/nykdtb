@@ -1,6 +1,7 @@
 #include "nykdtb/ndarray.hpp"
 
-#include "catch2/catch.hpp"
+#include <catch2/catch.hpp>
+
 #include "nykdtb/ndarray_ops.hpp"
 
 using namespace nykdtb;

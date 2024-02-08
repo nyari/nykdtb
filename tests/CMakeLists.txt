@@ -13,6 +13,7 @@ add_executable(nykdtb_tests
 main.cpp
 psvector.cpp
 ndarray.cpp
+ndarray_ops.cpp
 )
 
 set_property(TARGET nykdtb_tests PROPERTY CXX_STANDARD 20)

@@ -31,8 +31,18 @@ public:
     static constexpr auto copyConstruct = [](T& lhs, const T& rhs) { new (&lhs) T{rhs}; };
     static constexpr auto copyAssign    = [](T& lhs, const T& rhs) { lhs = rhs; };
 
-    static constexpr T* aaligned(T* p) { return std::assume_aligned<ALIGNMENT>(p); }
-    static constexpr const T* aaligned(const T* p) { return std::assume_aligned<ALIGNMENT>(p); }
+    template<typename P>
+    static constexpr P aaligned(P p) {
+        return mmove(p);
+    }
+    template<>
+    static constexpr T* aaligned(T* p) {
+        return std::assume_aligned<ALIGNMENT>(p);
+    }
+    template<>
+    static constexpr const T* aaligned(const T* p) {
+        return std::assume_aligned<ALIGNMENT>(p);
+    }
 
 public:
     inline PartialStackStorageVector();
@@ -54,7 +64,7 @@ public:
         return mmove(result);
     }
 
-    inline PartialStackStorageVector transformed(std::function<T(T)> transformer) {
+    inline PartialStackStorageVector transformed(std::function<T(T)> transformer) const {
         PartialStackStorageVector result;
         result.ensureAllocatedSize(size());
         result.m_currentSize = size();
