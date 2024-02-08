@@ -87,7 +87,7 @@ public:
     using Shape         = NDArrayShape<Params::SHAPE_STACK_SIZE>;
     using Strides       = PSVec<Size, Params::SHAPE_STACK_SIZE>;
     using Position      = PSVec<Index, Params::SHAPE_STACK_SIZE>;
-    using Storage       = PSVec<T, Params::STACK_SIZE>;
+    using Storage       = PSVec<T, Params::STACK_SIZE, Params::STORAGE_ALIGNMENT>;
     using SliceShape    = PSVec<IndexRange, Params::SHAPE_STACK_SIZE>;
     using Parameters    = Params;
     using Iterator      = Type*;
@@ -361,8 +361,9 @@ public:
 };
 
 struct DefaultNDArrayParams {
-    static constexpr Size STACK_SIZE       = 8;
-    static constexpr Size SHAPE_STACK_SIZE = 4;
+    static constexpr Size STACK_SIZE        = 8;
+    static constexpr Size SHAPE_STACK_SIZE  = 4;
+    static constexpr Size STORAGE_ALIGNMENT = 512;
 };
 
 template<typename T>

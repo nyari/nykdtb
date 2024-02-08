@@ -381,10 +381,10 @@ template<typename T, Size STACK_SIZE, Size ALIGNMENT = alignof(T)>
 using PSVec = PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>;
 
 template<typename T>
-using PSVec8 = PartialStackStorageVector<T, 8>;
+using PSVec8 = PSVec<T, 8>;
 
 template<typename T>
-using PSVec4 = PartialStackStorageVector<T, 4>;
+using PSVec4 = PSVec<T, 4>;
 
 }  // namespace nykdtb
 
