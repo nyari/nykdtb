@@ -311,12 +311,28 @@ inline static typename LHS::MaterialType cross3(const LHS& a, const RHS& b) {
     return {{i, j, k}, resultShape};
 };
 
-}  // namespace d2
+template<NDArrayLike T>
+inline static T::MaterialType rotAngleMx(const T& axis, const typename T::Type angle) {
+    const auto x = axis[0];
+    const auto y = axis[1];
+    const auto z = axis[2];
+    const auto s = std::sin(angle);
+    const auto c = std::cos(angle);
+    const auto a = 1 - c;
 
-/*
-TODO list:
-* Axis, rotation matrix creation
-*/
+    return {{c + x * x * a,
+             x * y * a - z * s,
+             x * z * a + y * s,
+             y * x * a + z * s,
+             c + y * y * a,
+             y * z * a - x * s,
+             z * x * a - y * s,
+             z * y * a + x * s,
+             c + z * z * a},
+            {3, 3}};
+}
+
+}  // namespace d2
 
 }  // namespace nykdtb::nda
 
