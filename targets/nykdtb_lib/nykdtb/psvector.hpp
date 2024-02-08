@@ -252,10 +252,10 @@ private:
     }
 
 private:
+    alignas(ALIGNMENT) uint8_t m_stackStorage[sizeof(T) * STACK_SIZE];
     Size m_currentSize;
     Size m_allocatedSize;
     T* m_heapStorage;
-    alignas(ALIGNMENT) uint8_t m_stackStorage[sizeof(T) * STACK_SIZE];
 };
 
 template<typename T, Size STACK_SIZE, Size ALIGNMENT>
