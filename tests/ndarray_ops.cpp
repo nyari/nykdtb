@@ -32,3 +32,12 @@ TEST_CASE("NDArray matrix multiplication", "[ndarray][matrix]") {
 
     REQUIRE(nda::eq(result, TestArray{{12, 9, 6, 30, 23, 16, 48, 37, 26}, {3, 3}}));
 }
+
+TEST_CASE("NDArray cross procuct", "[ndarray][matrix]") {
+    const TestArray lhs{{1, 0, 0}, {1, 3}};
+    const TestArray rhs{{0, 1, 0}, {1, 3}};
+
+    const auto result = nda::d2::cross3(lhs, rhs);
+
+    REQUIRE(nda::eq(result, TestArray{{0, 0, 1}, {1, 3}}));
+}
