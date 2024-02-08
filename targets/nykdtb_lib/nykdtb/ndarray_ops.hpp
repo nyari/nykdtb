@@ -194,7 +194,7 @@ inline static typename T::MaterialType identity(const typename T::Shape& shape) 
     Mx result(Mx::zeros(shape));
 
     for (Index i = 0; i < shape[0]; ++i) {
-        result[{i, i}];
+        result[{i, i}] = 1;
     }
 
     return result;
