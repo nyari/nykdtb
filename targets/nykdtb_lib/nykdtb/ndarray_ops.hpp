@@ -169,7 +169,7 @@ inline static T normalized(T elem) {
 
 template<NDArrayLike LHS, NDArrayLike RHS>
 inline static typename LHS::Type dot(const LHS& lhs, const RHS& rhs) {
-    static_assert(std::is_same_v<typename LHS::T, typename RHS::T>,
+    static_assert(std::is_same_v<typename LHS::Type, typename RHS::Type>,
                   "This function needs to be called with NDArrays of the same internal type");
 
     if (lhs.size() != rhs.size()) {
