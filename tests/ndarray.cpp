@@ -133,3 +133,12 @@ TEST_CASE("NDArray add slice to array", "[ndarray]") {
         }
     }
 }
+
+TEST_CASE("NDArray const slice", "[ndarray]") {
+    const TestArray arr({1, 2, 3, 4}, {4});
+
+    auto slc = slice(arr, {IR::after(2)});
+
+    REQUIRE(slc[0] == 3);
+    REQUIRE(slc[1] == 4);
+}
