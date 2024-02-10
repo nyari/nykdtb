@@ -467,7 +467,6 @@ TEST_CASE("PSVec move assign construct heap vector") {
     REQUIRE(ref[1].compare({Op::Default, Op::Destructed}));
 }
 
-
 TEST_CASE("PSVec insert one element on stack") {
     RefArr<2> ref;
     TestVec<4> test;
@@ -526,4 +525,99 @@ TEST_CASE("PSVec insert one element while moving from stack to heap") {
     REQUIRE(ref[1].compare({Op::Default, Op::Moved, Op::Moved}));
     REQUIRE(test[1].compare({Op::Default, Op::Copy}));
     REQUIRE(inserted.compare({Op::Default, Op::Copied}));
+}
+
+TEST_CASE("PSVec resize array increase size within stack from empty") {
+    TestVec<2> test;
+
+    ContainerTestAppliance init;
+
+    test.resize(1, init.track());
+
+    REQUIRE(!test.empty());
+    REQUIRE(test.size() == 1);
+    REQUIRE(test.onStack());
+    REQUIRE(init.compare({Op::Default, Op::Copied, Op::Destructed}));
+    REQUIRE(test[0].compare({Op::Default, Op::Copy}));
+}
+
+TEST_CASE("PSVec resize array increase size within stack from some elements filled") {
+    RefArr<1> ref;
+    TestVec<2> test;
+    for (const auto& r : ref) {
+        test.emplace_back(r.track());
+    }
+
+    ContainerTestAppliance init;
+
+    test.resize(2, init.track());
+
+    REQUIRE(!test.empty());
+    REQUIRE(test.size() == 2);
+    REQUIRE(test.onStack());
+    REQUIRE(ref[0] == test[0]);
+    REQUIRE(init.compare({Op::Default, Op::Copied, Op::Destructed}));
+    REQUIRE(test[0].compare({Op::Default}));
+    REQUIRE(test[1].compare({Op::Default, Op::Copy}));
+}
+
+TEST_CASE("PSVec resize array increase size stack to heap from some elements filled") {
+    RefArr<1> ref;
+    TestVec<2> test;
+    for (const auto& r : ref) {
+        test.emplace_back(r.track());
+    }
+
+    ContainerTestAppliance init;
+
+    test.resize(3, init.track());
+
+    REQUIRE(!test.empty());
+    REQUIRE(test.size() == 3);
+    REQUIRE(!test.onStack());
+    REQUIRE(ref[0] == test[0]);
+    REQUIRE(init.compare({Op::Default, Op::Copied, Op::Copied, Op::Destructed}));
+    REQUIRE(test[0].compare({Op::Default, Op::Moved}));
+    REQUIRE(test[1].compare({Op::Default, Op::Copy}));
+    REQUIRE(test[2].compare({Op::Default, Op::Copied, Op::Copy}));
+}
+
+TEST_CASE("PSVec resize reduce on stack") {
+    RefArr<2> ref;
+    TestVec<2> test;
+    for (const auto& r : ref) {
+        test.emplace_back(r.track());
+    }
+
+    ContainerTestAppliance init;
+
+    test.resize(1, init.track());
+
+    REQUIRE(!test.empty());
+    REQUIRE(test.size() == 1);
+    REQUIRE(test.onStack());
+    REQUIRE(ref[0] == test[0]);
+    REQUIRE(ref[1].compare({Op::Default, Op::Destructed}));
+    REQUIRE(init.compare({Op::Default, Op::Destructed}));
+    REQUIRE(test[0].compare({Op::Default}));
+}
+
+TEST_CASE("PSVec resize reduce from heap to stack") {
+    RefArr<2> ref;
+    TestVec<1> test;
+    for (const auto& r : ref) {
+        test.emplace_back(r.track());
+    }
+
+    ContainerTestAppliance init;
+
+    test.resize(1, init.track());
+
+    REQUIRE(!test.empty());
+    REQUIRE(test.size() == 1);
+    REQUIRE(test.onStack());
+    REQUIRE(ref[0] == test[0]);
+    REQUIRE(ref[1].compare({Op::Default, Op::Destructed}));
+    REQUIRE(init.compare({Op::Default, Op::Destructed}));
+    REQUIRE(test[0].compare({Op::Default, Op::Moved, Op::Moved}));
 }
