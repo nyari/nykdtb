@@ -157,7 +157,7 @@ inline static void normalize(T& elem) {
     }
     auto mtp = 1.0F / mag;
     for (auto& e : elem) {
-        e *= div;
+        e *= mtp;
     }
 }
 
