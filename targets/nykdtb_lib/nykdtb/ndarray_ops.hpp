@@ -140,15 +140,22 @@ inline static T divScalar(T lhs, const typename T::Type& rhs) {
 }
 
 template<NDArrayLike T>
-inline static void normalize(T& elem) {
+inline static typename T::Type magnitude(const T& elem) {
     typename T::Type lengthsq = 0;
     for (const auto& e : elem) {
         lengthsq += e * e;
     }
-    if (lengthsq == 0.0) {
+
+    return std::sqrt(lengthsq);
+}
+
+template<NDArrayLike T>
+inline static void normalize(T& elem) {
+    const auto mag = magnitude(elem);
+    if (mag == 0) {
         throw DivisionByZero();
     }
-    auto mtp = 1.0F / std::sqrt(lengthsq);
+    auto mtp = 1.0F / mag;
     for (auto& e : elem) {
         e *= div;
     }
