@@ -434,6 +434,38 @@ TEST_CASE("PSVec move assign construct stack vector") {
     REQUIRE(ref[1].compare({Op::Default, Op::Moved, Op::Destructed}));
 }
 
+TEST_CASE("PSVec move assign construct stack vector smaller") {
+    RefArr<1> ref;
+    TestVec<2> test;
+    for (const auto& r : ref) {
+        test.emplace_back(r.track());
+    }
+
+    RefVec refV;
+    refV.reserve(2);
+    RefVec refO;
+    refO.reserve(2);
+    {
+        TestVec<2> copy{{}, {}};
+        for (const auto& elem : copy) {
+            refO.emplace_back(elem.track());
+        }
+        copy = mmove(test);
+        for (const auto& elem : copy) {
+            refV.emplace_back(elem.track());
+        }
+
+        REQUIRE(copy.onStack());
+        REQUIRE(copy.size() == 1);
+        REQUIRE_FALSE(copy.empty());
+    }
+
+    REQUIRE(refO[0].compare({Op::Default, Op::Copy, Op::MoveA}));
+    REQUIRE(refO[1].compare({Op::Default, Op::Copy, Op::Destructed}));
+    REQUIRE(ref[0] == refV[0]);
+    REQUIRE(ref[0].compare({Op::Default, Op::Moved, Op::Destructed}));
+}
+
 TEST_CASE("PSVec move assign construct heap vector") {
     RefArr<2> ref;
     TestVec<1> test;

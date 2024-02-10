@@ -329,8 +329,9 @@ inline PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>&
 PartialStackStorageVector<T, STACK_SIZE, ALIGNMENT>::operator=(PartialStackStorageVector&& other) {
     if (other.onStack()) {
         const Size commonPartSize = std::min(m_currentSize, other.m_currentSize);
-
-        ensureAllocatedSize(other.m_currentSize);
+        if (m_currentSize < other.m_currentSize) {
+            ensureAllocatedSize(other.m_currentSize);
+        }
         transfer(other.begin(), other.ptr(commonPartSize), begin(), moveAssign);
         destruct(ptr(commonPartSize), ptr(m_currentSize));
         transfer(other.ptr(commonPartSize), other.ptr(other.m_currentSize), ptr(commonPartSize), moveConstruct);
