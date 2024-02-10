@@ -372,6 +372,11 @@ struct DefaultNDArrayParams {
     static constexpr Size STORAGE_ALIGNMENT = 512;
 };
 
+template<NDArrayLike T>
+inline static NDArraySlice<T> slice(T& array, typename T::SliceShape shape) {
+    return {array, mmove(shape)};
+}
+
 template<typename T>
 using NDArray = NDArrayBase<T, DefaultNDArrayParams>;
 
