@@ -35,14 +35,8 @@ public:
     static constexpr P aaligned(P p) {
         return mmove(p);
     }
-    template<>
-    static constexpr T* aaligned(T* p) {
-        return std::assume_aligned<ALIGNMENT>(p);
-    }
-    template<>
-    static constexpr const T* aaligned(const T* p) {
-        return std::assume_aligned<ALIGNMENT>(p);
-    }
+    static constexpr T* aaligned(T* p) { return std::assume_aligned<ALIGNMENT>(p); }
+    static constexpr const T* aaligned(const T* p) { return std::assume_aligned<ALIGNMENT>(p); }
 
 public:
     inline PartialStackStorageVector();
