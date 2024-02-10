@@ -131,11 +131,22 @@ public:
 
     inline void resize(Size newSize, T init) {
         const Size oldSize = m_currentSize;
+        if (oldSize == newSize) {
+            return;
+        }
+
         for (Index i = newSize; i < oldSize; ++i) {
             ptr(i)->~T();
         }
-        m_currentSize = newSize;
-        ensureAllocatedSize(m_currentSize);
+
+        if (oldSize > newSize) {
+            m_currentSize = newSize;
+            ensureAllocatedSize(m_currentSize);
+        } else {
+            ensureAllocatedSize(newSize);
+            m_currentSize = newSize;
+        }
+
         for (Index i = oldSize; i < newSize; ++i) {
             new (ptr(i)) T{init};
         }
