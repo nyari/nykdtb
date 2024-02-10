@@ -284,7 +284,7 @@ inline static typename LHS::MaterialType matMul(const LHS& lhs, const RHS& rhs) 
     if (!is2d<LHS>(lhs.shape()) || !is2d<RHS>(rhs.shape())) {
         throw Matrix2DError("Only 2D matrices are multipliable");
     }
-    if (lhs.shape(0) != rhs.shape(1)) {
+    if (lhs.shape(1) != rhs.shape(0)) {
         throw Matrix2DError("Incorrect shape for matrix multiplication");
     }
 

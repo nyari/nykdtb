@@ -33,6 +33,23 @@ TEST_CASE("NDArray matrix multiplication", "[ndarray][matrix]") {
     REQUIRE(nda::eq(result, TestArray{{12, 9, 6, 30, 23, 16, 48, 37, 26}, {3, 3}}));
 }
 
+TEST_CASE("NDArray matrix multiplication, non symmetric output", "[ndarray][matrix]") {
+    /*
+                6   5   4   -1
+                3   2   1   -2
+        1   2   12  9   6   -5
+        3   4   30  23  16  -11
+        5   6   48  37  26  -17
+    */
+
+    const TestArray lhs{{1, 2, 3, 4, 5, 6}, {3, 2}};
+    const TestArray rhs{{6, 5, 4, -1, 3, 2, 1, -2}, {2, 4}};
+
+    const auto result = nda::d2::matMul(lhs, rhs);
+
+    REQUIRE(nda::eq(result, TestArray{{12, 9, 6, -5, 30, 23, 16, -11, 48, 37, 26, -17}, {3, 4}}));
+}
+
 TEST_CASE("NDArray cross procuct", "[ndarray][matrix]") {
     const TestArray lhs{{1, 0, 0}, {1, 3}};
     const TestArray rhs{{0, 1, 0}, {1, 3}};
