@@ -320,6 +320,7 @@ public:
         enum EndPlacement { End };
 
         using Type      = typename T::Type;
+        using MutType   = std::conditional_t<T::isConstArray, std::add_const_t<Type>, Type>;
         using ConstType = const Type;
         using Position  = typename T::Position;
 
@@ -345,9 +346,9 @@ public:
             return mmove(copy);
         }
 
-        Type& operator*() { return m_slice.m_ndarray[m_rawIndex]; }
+        MutType& operator*() { return m_slice.m_ndarray[m_rawIndex]; }
         ConstType& operator*() const { return m_slice.m_ndarray[m_rawIndex]; }
-        Type* operator->() { return &m_slice.m_ndarray[m_rawIndex]; }
+        MutType* operator->() { return &m_slice.m_ndarray[m_rawIndex]; }
         ConstType* operator->() const { return &m_slice.m_ndarray[m_rawIndex]; }
 
         bool operator==(const IteratorBase& other) const { return m_rawIndex == other.m_rawIndex; }
