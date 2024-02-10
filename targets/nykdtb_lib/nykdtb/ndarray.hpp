@@ -108,6 +108,9 @@ public:
         }
     }
     static NDArrayBase zeros(Shape shape) { return {Storage::constructFilled(shape.shapeSize(), 0), mmove(shape)}; }
+    static NDArrayBase filled(Shape shape, const T& input) {
+        return {Storage::constructFilled(shape.shapeSize(), input), mmove(shape)};
+    }
 
     NDArrayBase(NDArrayBase&&)            = default;
     NDArrayBase& operator=(NDArrayBase&&) = default;
