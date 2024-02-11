@@ -63,6 +63,7 @@ concept NDArrayLike = requires(T a) {
 
     { a[Index{0}] } -> std::common_reference_with<typename T::Type>;
     { a[typename T::Position{0}] } -> std::common_reference_with<typename T::Type>;
+    { a[std::initializer_list<Index>{}] } -> std::common_reference_with<typename T::Type>;
     { a.empty() } -> std::same_as<bool>;
     { a.shape() } -> std::common_reference_with<typename T::Shape>;
     { a.shape(Index{0}) } -> std::same_as<Size>;
@@ -86,6 +87,7 @@ concept NDArrayLike = requires(T a) {
 
     { a[Index{0}] } -> std::common_reference_with<typename T::Type>;
     { a[typename T::Position{0}] } -> std::common_reference_with<typename T::Type>;
+    { a[std::initializer_list<Index>{}] } -> std::common_reference_with<typename T::Type>;
     { a.empty() } -> std::same_as<bool>;
     { a.shape() } -> std::common_reference_with<typename T::Shape>;
     { a.shape(Index{0}) } -> std::same_as<Size>;
@@ -152,6 +154,12 @@ public:
 
     T& operator[](Index index) { return m_storage[index]; }
     const T& operator[](Index index) const { return m_storage[index]; }
+    T& operator[](std::initializer_list<Index> indices) {
+        return m_storage[calculateRawIndexUnchecked(m_strides, mmove(indices))];
+    }
+    const T& operator[](std::initializer_list<Index> indices) const {
+        return m_storage[calculateRawIndexUnchecked(m_strides, mmove(indices))];
+    }
     T& operator[](const Position& pos) { return this->operator[](calculateRawIndexUnchecked(m_strides, pos)); }
     const T& operator[](const Position& pos) const {
         return this->operator[](calculateRawIndexUnchecked(m_strides, pos));
@@ -189,6 +197,18 @@ public:
         for (Index i = 0; i < strides.size(); ++i) {
             result += strides[i] * position[i];
         }
+        return result;
+    }
+
+    static constexpr Index calculateRawIndexUnchecked(const Strides& strides, std::initializer_list<Index> indices) {
+        Index result = 0;
+        auto sIt     = strides.begin();
+
+        for (const auto& index : indices) {
+            result += index * (*sIt);
+            ++sIt;
+        }
+
         return result;
     }
 
@@ -252,6 +272,13 @@ public:
         return m_ndarray[calculateRawIndexFromSliceIndexUnchecked(index)];
     }
 
+    MutType& operator[](std::initializer_list<Index> indices) {
+        return m_ndarray[calculateRawIndexFromPositionUnchecked(mmove(indices))];
+    }
+    ConstType& operator[](std::initializer_list<Index> indices) const {
+        return m_ndarray[calculateRawIndexFromPositionUnchecked(mmove(indices))];
+    }
+
     MutType& operator[](const Position& position) {
         return m_ndarray[calculateRawIndexFromPositionUnchecked(position)];
     }
@@ -265,6 +292,10 @@ public:
 
     Index calculateRawIndexFromPositionUnchecked(const Position& position) const {
         return calculateRawIndexFromPositionUnchecked(m_ndarray.strides(), m_sliceShape, position);
+    }
+
+    Index calculateRawIndexFromPositionUnchecked(std::initializer_list<Index> position) const {
+        return calculateRawIndexFromPositionUnchecked(m_ndarray.strides(), m_sliceShape, mmove(position));
     }
 
     static constexpr Shape calculateShape(const Shape& original, const SliceShape& sliceShape) {
@@ -287,6 +318,18 @@ public:
         Index result = 0;
         for (Index i = 0; i < arrayStrides.size(); ++i) {
             result += arrayStrides[i] * (sliceShape[i].begin() + position[i]);
+        }
+        return result;
+    }
+
+    static constexpr Index calculateRawIndexFromPositionUnchecked(const Strides& arrayStrides,
+                                                                  const SliceShape& sliceShape,
+                                                                  std::initializer_list<Index> position) {
+        Index result = 0;
+        Index i      = 0;
+        for (const auto& pos : position) {
+            result += arrayStrides[i] * (sliceShape[i].begin() + pos);
+            ++i;
         }
         return result;
     }
