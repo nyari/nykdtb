@@ -303,13 +303,11 @@ inline static typename LHS::MaterialType matMul(const LHS& lhs, const RHS& rhs) 
 
 template<NDArrayLike LHS, NDArrayLike RHS>
 inline static typename LHS::MaterialType cross3(const LHS& a, const RHS& b) {
-    const typename LHS::Shape resultShape{1, 3};
-
     const auto i = a[1] * b[2] - a[2] * b[1];
     const auto j = a[0] * b[2] - a[2] * b[0];
     const auto k = a[0] * b[1] - a[1] * b[0];
 
-    return {{i, j, k}, resultShape};
+    return typename LHS::MaterialType({i, j, k});
 };
 
 template<NDArrayLike T>
