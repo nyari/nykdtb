@@ -168,6 +168,14 @@ public:
     NDArrayStatic(std::initializer_list<Type> input) { std::copy(input.begin(), input.end(), begin()); }
 
     constexpr NDArrayStatic clone() const { return *this; }
+    static constexpr NDArrayStatic filled(const T& value) {
+        NDArrayStatic result;
+        for (auto& elem : result) {
+            elem = value;
+        }
+        return mmove(result);
+    }
+    static constexpr NDArrayStatic zeroes() { return filled(0); }
 
     NDArrayStatic(NDArrayStatic&&)            = default;
     NDArrayStatic& operator=(NDArrayStatic&&) = default;
