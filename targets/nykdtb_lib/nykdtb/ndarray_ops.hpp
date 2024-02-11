@@ -13,10 +13,6 @@ NYKDTB_DEFINE_EXCEPTION_CLASS(DivisionByZero, RuntimeException)
 
 template<NDArrayLike LHS, NDArrayLike RHS, typename F>
 inline static void baseAssignWithSameShape(LHS& lhs, const RHS& rhs, F op) {
-    if (lhs.shape() != rhs.shape()) {
-        throw ShapesDoNotMatch();
-    }
-
     auto lhsBegin = lhs.begin();
     auto lhsEnd   = lhs.end();
     auto rhsIt    = rhs.begin();
@@ -72,10 +68,6 @@ inline static LHS ewDiv(LHS lhs, const RHS& rhs) {
 
 template<NDArrayLike LHS, NDArrayLike RHS>
 inline static void assign(LHS& lhs, const RHS& rhs) {
-    if (lhs.shape() != rhs.shape()) {
-        throw ShapesDoNotMatch();
-    }
-
     auto lhsBegin = lhs.begin();
     auto lhsEnd   = lhs.end();
     auto rhsIt    = rhs.begin();
