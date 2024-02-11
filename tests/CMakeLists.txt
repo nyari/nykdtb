@@ -13,6 +13,7 @@ add_executable(nykdtb_tests
 main.cpp
 psvector.cpp
 ndarray.cpp
+ndarray_static.cpp
 ndarray_ops.cpp
 )
 

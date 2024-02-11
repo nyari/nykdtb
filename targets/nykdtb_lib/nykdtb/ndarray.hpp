@@ -99,6 +99,26 @@ concept NDArrayLike = requires(T a) {
     { a.end() } -> std::same_as<typename T::ConstIterator>;
 };
 
+template<Size SIZE, Size... Sizes>
+struct NDArrayStaticParams {
+    using Lower                       = NDArrayStaticParams<Sizes...>;
+    static constexpr Size StorageSize = SIZE * Lower::StorageSize;
+};
+
+template<Size SIZE>
+struct NDArrayStaticParams<SIZE> {
+    static constexpr Size StorageSize = SIZE;
+};
+
+template<typename T, typename Params, Size... Sizes>
+class NDArrayStatic {
+public:
+    using SubArrayData = NDArrayStaticParams<Sizes...>;
+
+private:
+    alignas(Params::STORAGE_ALIGNMENT) uint8_t m_storage[SubArrayData::StorageSize * sizeof(T)];
+};
+
 template<NDArrayLike NDT>
 class NDArraySlice;
 
