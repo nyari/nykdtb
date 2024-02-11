@@ -13,8 +13,8 @@
 
 namespace nykdtb {
 
-using Index        = std::ptrdiff_t;
-using Size         = std::ptrdiff_t;
+using Index        = int32_t;
+using Size         = int32_t;
 using DefaultFloat = float;
 
 template<typename T>

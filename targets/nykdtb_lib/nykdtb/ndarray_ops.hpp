@@ -289,14 +289,19 @@ inline static typename LHS::MaterialType matMul(const LHS& lhs, const RHS& rhs) 
     }
 
     const typename LHS::Shape resultShape{lhs.shape(0), rhs.shape(1)};
-    auto result = LHS::MaterialType::zeros(resultShape);
+    const auto resultRowCount    = resultShape[0];
+    const auto resultColumnCount = resultShape[1];
+    const auto sourceColumnCount = lhs.shape(1);
+    auto result                  = LHS::MaterialType::zeros(resultShape);
 
-    for (Index resultRow = 0; resultRow < resultShape[0]; ++resultRow) {
-        for (Index resultColumn = 0; resultColumn < resultShape[1]; ++resultColumn) {
-            for (Index sourceColumn = 0; sourceColumn < lhs.shape(1); ++sourceColumn) {
-                const auto lhsValue = lhs[{resultRow, sourceColumn}];
-                const auto rhsValue = rhs[{sourceColumn, resultColumn}];
-                result[{resultRow, resultColumn}] += lhsValue * rhsValue;
+    for (Index resultRow = 0; resultRow < resultRowCount; ++resultRow) {
+        const auto lhsRowOffset    = lhs.stride(0) * resultRow;
+        const auto resultRowOffset = result.stride(0) * resultRow;
+        for (Index resultColumn = 0; resultColumn < resultColumnCount; ++resultColumn) {
+            for (Index sourceColumn = 0; sourceColumn < sourceColumnCount; ++sourceColumn) {
+                const auto lhsValue = lhs[lhsRowOffset + sourceColumn];
+                const auto rhsValue = rhs[rhs.stride(0) * sourceColumn + resultColumn];
+                result[resultRowOffset + resultColumn] += lhsValue * rhsValue;
             }
         }
     }
