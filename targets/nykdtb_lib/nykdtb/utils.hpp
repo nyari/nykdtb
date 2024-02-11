@@ -1,6 +1,8 @@
 #ifndef NYKDTB_UTILS_HPP
 #define NYKDTB_UTILS_HPP
 
+#include <type_traits>
+
 namespace nykdtb {
 
 template<typename T>
@@ -59,6 +61,18 @@ private:
 };
 
 using IR = IndexRange;
+
+template<typename NewArray, typename OldArray>
+static constexpr NewArray arrayPrepend(std::remove_cvref_t<decltype(NewArray()[0])> item, const OldArray& input) {
+    NewArray result;
+    auto resultIt = result.begin();
+    *(resultIt++) = mmove(item);
+    for (const auto& item : input) {
+        *(resultIt++) = item;
+    }
+
+    return mmove(result);
+}
 
 }  // namespace nykdtb
 

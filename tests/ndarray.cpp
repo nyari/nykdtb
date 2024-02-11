@@ -67,10 +67,11 @@ TEST_CASE("NDArray with four elements and incorrect 2D shape", "[ndarray]") {
 
 TEST_CASE("NDArray calculateStrides tests", "[ndarray]") {
     SECTION("One dimensional shape") {
-        REQUIRE(TestArray::calculateStrides({7}) == TestArray::Strides{1});
+        REQUIRE(NDArrayCalc::calculateStrides<TestArray::Strides, TestArray::Shape>({7}) == TestArray::Strides{1});
     }
     SECTION("Multi dimensional shape") {
-        REQUIRE(TestArray::calculateStrides({7, 5, 3, 2}) == TestArray::Strides{30, 6, 2, 1});
+        REQUIRE(NDArrayCalc::calculateStrides<TestArray::Strides, TestArray::Shape>({7, 5, 3, 2}) ==
+                TestArray::Strides{30, 6, 2, 1});
     }
 }
 
@@ -83,22 +84,22 @@ TEST_CASE("NDArraySlice calculateRawIndex") {
     }
     SECTION("Four dimensional shape E2E slice") {
         TestSlice::Shape originalShape{5, 3, 2};
-        auto originalStrides = TestSlice::NDArray::calculateStrides(originalShape);
+        auto originalStrides = NDArrayCalc::calculateStrides<TestArray::Strides, TestArray::Shape>(originalShape);
 
         TestSlice::SliceShape sliceShape{IR::e2e(), IR::e2e(), IR::e2e()};
         auto calcShape   = TestSlice::calculateShape(originalShape, sliceShape);
-        auto calcStrides = TestSlice::NDArray::calculateStrides(calcShape);
+        auto calcStrides = NDArrayCalc::calculateStrides<TestArray::Strides, TestArray::Shape>(calcShape);
 
         REQUIRE(TestSlice::calculateRawIndexFromSliceIndexUnchecked(originalStrides, calcStrides, sliceShape, 10) ==
                 10);
     }
     SECTION("Three dimensional shape narrow slices slice") {
         TestSlice::Shape originalShape{5, 3, 2};
-        auto originalStrides = TestSlice::NDArray::calculateStrides(originalShape);
+        auto originalStrides = NDArrayCalc::calculateStrides<TestArray::Strides, TestArray::Shape>(originalShape);
 
         TestSlice::SliceShape sliceShape{IR::between(2, 4), IR::single(1), IR::e2e()};
         auto calcShape   = TestSlice::calculateShape(originalShape, sliceShape);
-        auto calcStrides = TestSlice::NDArray::calculateStrides(calcShape);
+        auto calcStrides = NDArrayCalc::calculateStrides<TestArray::Strides, TestArray::Shape>(calcShape);
 
         REQUIRE(TestSlice::calculateRawIndexFromSliceIndexUnchecked(originalStrides, calcStrides, sliceShape, 3) == 21);
     }

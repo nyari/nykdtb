@@ -9,11 +9,41 @@
 
 namespace nykdtb {
 
+struct NDArrayCalc {
+    template<typename StridesType, typename ShapeType>
+    static constexpr StridesType calculateStrides(const ShapeType& shape) {
+        StridesType strides(shape);
+        strides.last() = 1;
+
+        for (Index i = strides.size() - 1; i > 0; --i) {
+            strides[i - 1] = strides[i] * shape[i];
+        }
+
+        return mmove(strides);
+    }
+
+    template<typename StridesType, typename PositionType>
+    static constexpr Index calculateRawIndexUnchecked(const StridesType& strides, const PositionType& indices) {
+        Index result = 0;
+        auto sIt     = strides.begin();
+
+        for (const auto& index : indices) {
+            result += index * (*sIt);
+            ++sIt;
+        }
+
+        return result;
+    }
+};
+
 template<Size STACK_SIZE>
 struct NDArrayShape : public PSVec<Size, STACK_SIZE> {
     NDArrayShape() = default;
     NDArrayShape(std::initializer_list<Size> list)
         : PSVec<Size, STACK_SIZE>(list) {}
+    template<typename Iter>
+    NDArrayShape(Iter begin, Iter end)
+        : PSVec<Size, STACK_SIZE>(begin, end) {}
 
     bool operator==(const NDArrayShape& other) const {
         const NDArrayShape& me = *this;
@@ -101,22 +131,79 @@ concept NDArrayLike = requires(T a) {
 
 template<Size SIZE, Size... Sizes>
 struct NDArrayStaticParams {
-    using Lower                       = NDArrayStaticParams<Sizes...>;
-    static constexpr Size StorageSize = SIZE * Lower::StorageSize;
+    using Lower                               = NDArrayStaticParams<Sizes...>;
+    static constexpr Size storageSize         = SIZE * Lower::storageSize;
+    static constexpr Size depth               = Lower::depth + 1;
+    static constexpr Size stride              = Lower::storageSize;
+    using DimensionStorage                    = std::array<Size, depth>;
+    static constexpr DimensionStorage strides = arrayPrepend<DimensionStorage>(stride, Lower::strides);
+    static constexpr DimensionStorage shape   = arrayPrepend<DimensionStorage>(SIZE, Lower::shape);
 };
 
 template<Size SIZE>
 struct NDArrayStaticParams<SIZE> {
-    static constexpr Size StorageSize = SIZE;
+    static constexpr Size storageSize         = SIZE;
+    static constexpr Size depth               = 1;
+    static constexpr Size stride              = 1;
+    using DimensionStorage                    = std::array<Size, depth>;
+    static constexpr DimensionStorage strides = {stride};
+    static constexpr DimensionStorage shape   = {storageSize};
 };
 
 template<typename T, typename Params, Size... Sizes>
 class NDArrayStatic {
 public:
-    using SubArrayData = NDArrayStaticParams<Sizes...>;
+    using Meta          = NDArrayStaticParams<Sizes...>;
+    using MaterialType  = NDArrayStatic;
+    using Type          = T;
+    using SliceShape    = std::array<IndexRange, Meta::depth>;
+    using Shape         = NDArrayShape<Meta::depth>;
+    using Strides       = std::array<Size, Meta::depth>;
+    using Position      = std::array<Index, Meta::depth>;
+    using Iterator      = Type*;
+    using ConstIterator = const Type*;
+
+public:
+    NDArrayStatic() = default;
+    NDArrayStatic(std::initializer_list<Type> input) { std::copy(input.begin(), input.end(), begin()); }
+
+    constexpr NDArrayStatic clone() const { return *this; }
+
+    NDArrayStatic(NDArrayStatic&&)            = default;
+    NDArrayStatic& operator=(NDArrayStatic&&) = default;
+
+    constexpr Type& operator[](const Index idx) { return m_storage[idx]; }
+    constexpr const Type& operator[](const Index idx) const { return m_storage[idx]; }
+    constexpr Type& operator[](std::initializer_list<Index> indices) {
+        return m_storage[NDArrayCalc::calculateRawIndexUnchecked(Meta::strides, indices)];
+    }
+    constexpr const Type& operator[](std::initializer_list<Index> indices) const {
+        return m_storage[NDArrayCalc::calculateRawIndexUnchecked(Meta::strides, indices)];
+    }
+    constexpr Type& operator[](const Position& position) {
+        return m_storage[NDArrayCalc::calculateRawIndexUnchecked(Meta::strides, position)];
+    }
+    constexpr const Type& operator[](const Position& position) const {
+        return m_storage[NDArrayCalc::calculateRawIndexUnchecked(Meta::strides, position)];
+    }
+    constexpr bool empty() const { return false; }
+    constexpr Shape shape() const { return Shape(Meta::shape.begin(), Meta::shape.end()); }
+    constexpr Size shape(const Index idx) const { return Meta::shape[idx]; }
+    constexpr const Strides& strides() const { return Meta::strides; }
+    constexpr Size stride(const Index idx) const { return Meta::strides[idx]; }
+    constexpr Size size() const { return Meta::storageSize; }
+
+    constexpr Iterator begin() { return &m_storage[0]; }
+    constexpr ConstIterator begin() const { return &m_storage[0]; }
+    constexpr Iterator end() { return &m_storage[Meta::storageSize]; }
+    constexpr ConstIterator end() const { return &m_storage[Meta::storageSize]; }
 
 private:
-    alignas(Params::STORAGE_ALIGNMENT) uint8_t m_storage[SubArrayData::StorageSize * sizeof(T)];
+    NDArrayStatic(const NDArrayStatic& other)            = default;
+    NDArrayStatic& operator=(const NDArrayStatic& other) = default;
+
+private:
+    alignas(Params::STORAGE_ALIGNMENT) T m_storage[Meta::storageSize];
 };
 
 template<NDArrayLike NDT>
@@ -143,9 +230,11 @@ public:
     NDArrayBase(Storage input)
         : m_storage(mmove(input)),
           m_shape({static_cast<Size>(m_storage.size())}),
-          m_strides(calculateStrides(m_shape)) {}
+          m_strides(NDArrayCalc::calculateStrides<Strides, Shape>(m_shape)) {}
     NDArrayBase(Storage input, Shape shape)
-        : m_storage(mmove(input)), m_shape(mmove(shape)), m_strides(calculateStrides(m_shape)) {
+        : m_storage(mmove(input)),
+          m_shape(mmove(shape)),
+          m_strides(NDArrayCalc::calculateStrides<Strides, Shape>(m_shape)) {
         if (m_shape.shapeSize() != size()) {
             throw ShapeDoesNotMatchSize();
         }
@@ -175,14 +264,16 @@ public:
     T& operator[](Index index) { return m_storage[index]; }
     const T& operator[](Index index) const { return m_storage[index]; }
     T& operator[](std::initializer_list<Index> indices) {
-        return m_storage[calculateRawIndexUnchecked(m_strides, mmove(indices))];
+        return m_storage[NDArrayCalc::calculateRawIndexUnchecked(m_strides, mmove(indices))];
     }
     const T& operator[](std::initializer_list<Index> indices) const {
-        return m_storage[calculateRawIndexUnchecked(m_strides, mmove(indices))];
+        return m_storage[NDArrayCalc::calculateRawIndexUnchecked(m_strides, mmove(indices))];
     }
-    T& operator[](const Position& pos) { return this->operator[](calculateRawIndexUnchecked(m_strides, pos)); }
+    T& operator[](const Position& pos) {
+        return this->operator[](NDArrayCalc::calculateRawIndexUnchecked(m_strides, pos));
+    }
     const T& operator[](const Position& pos) const {
-        return this->operator[](calculateRawIndexUnchecked(m_strides, pos));
+        return this->operator[](NDArrayCalc::calculateRawIndexUnchecked(m_strides, pos));
     }
 
     void reshape(Shape shape) {
@@ -191,45 +282,13 @@ public:
         }
 
         m_shape   = mmove(shape);
-        m_strides = calculateStrides(m_shape);
+        m_strides = NDArrayCalc::calculateStrides<Strides, Shape>(m_shape);
     }
 
     void resize(Shape newShape, T init) {
         m_storage.resize(newShape.shapeSize(), mmove(init));
         m_shape   = mmove(newShape);
-        m_strides = calculateStrides(m_shape);
-    }
-
-public:
-    static constexpr Strides calculateStrides(const Shape& shape) {
-        Strides strides(shape);
-        strides.last() = 1;
-
-        for (Index i = strides.size() - 1; i > 0; --i) {
-            strides[i - 1] = strides[i] * shape[i];
-        }
-
-        return mmove(strides);
-    }
-
-    static constexpr Index calculateRawIndexUnchecked(const Strides& strides, const Position& position) {
-        Index result = 0;
-        for (Index i = 0; i < strides.size(); ++i) {
-            result += strides[i] * position[i];
-        }
-        return result;
-    }
-
-    static constexpr Index calculateRawIndexUnchecked(const Strides& strides, std::initializer_list<Index> indices) {
-        Index result = 0;
-        auto sIt     = strides.begin();
-
-        for (const auto& index : indices) {
-            result += index * (*sIt);
-            ++sIt;
-        }
-
-        return result;
+        m_strides = NDArrayCalc::calculateStrides<Strides, Shape>(m_shape);
     }
 
 private:
@@ -270,7 +329,7 @@ public:
         : m_ndarray{array},
           m_sliceShape{mmove(shape)},
           m_shape(calculateShape(m_ndarray.shape(), m_sliceShape)),
-          m_strides(NDArray::calculateStrides(m_shape)) {}
+          m_strides(NDArrayCalc::calculateStrides<Strides, Shape>(m_shape)) {}
 
     bool empty() const { return m_shape.shapeSize(); }
     const Shape& shape() const { return m_shape; }
@@ -420,8 +479,8 @@ public:
         bool operator<=(const IteratorBase& other) const { return m_rawIndex <= other.m_rawIndex; }
 
         Size operator-(const IteratorBase& other) const {
-            auto selfIndex  = T::MaterialType::calculateRawIndexUnchecked(m_slice.strides(), m_pos);
-            auto otherIndex = T::MaterialType::calculateRawIndexUnchecked(other.m_slice.strides(), other.m_pos);
+            auto selfIndex  = NDArrayCalc::calculateRawIndexUnchecked(m_slice.strides(), m_pos);
+            auto otherIndex = NDArrayCalc::calculateRawIndexUnchecked(other.m_slice.strides(), other.m_pos);
             return selfIndex - otherIndex;
         }
 
