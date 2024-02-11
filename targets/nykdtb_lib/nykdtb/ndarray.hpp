@@ -166,6 +166,10 @@ public:
 public:
     NDArrayStatic() = default;
     NDArrayStatic(std::initializer_list<Type> input) { std::copy(input.begin(), input.end(), begin()); }
+    template<typename Iter>
+    NDArrayStatic(Iter _begin, Iter _end) {
+        std::copy(_begin, _end, begin());
+    }
 
     constexpr NDArrayStatic clone() const { return *this; }
     static constexpr NDArrayStatic filled(const T& value) {
