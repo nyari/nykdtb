@@ -265,7 +265,7 @@ class NDArraySlice;
 struct DefaultNDArrayParams {
     static constexpr Size STACK_SIZE        = 8;
     static constexpr Size SHAPE_STACK_SIZE  = 4;
-    static constexpr Size STORAGE_ALIGNMENT = 512;
+    static constexpr Size STORAGE_ALIGNMENT = 256;
 };
 
 template<typename T, typename Params>

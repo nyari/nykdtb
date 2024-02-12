@@ -6,7 +6,7 @@
 using namespace nykdtb;
 
 struct TestNDArrayStaticParams {
-    static constexpr Size STORAGE_ALIGNMENT = 512;
+    static constexpr Size STORAGE_ALIGNMENT = 256;
 };
 
 template<Size... sizes>
