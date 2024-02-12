@@ -311,10 +311,10 @@ inline static typename LHS::MaterialType cross3(const LHS& a, const RHS& b) {
 };
 
 template<NDArrayLike T>
-inline static T::MaterialType rotAngleMx(const T& axis, const typename T::Type angle) {
-    const auto x = axis[0];
-    const auto y = axis[1];
-    const auto z = axis[2];
+inline static T::MaterialType rotAngleMx(const typename T::Type x,
+                                         const typename T::Type y,
+                                         const typename T::Type z,
+                                         const typename T::Type angle) {
     const auto s = std::sin(angle);
     const auto c = std::cos(angle);
     const auto a = 1 - c;
