@@ -51,10 +51,10 @@ TEST_CASE("NDArray matrix multiplication, non symmetric output", "[ndarray][matr
 }
 
 TEST_CASE("NDArray cross procuct", "[ndarray][matrix]") {
-    const TestArray lhs{{1, 0, 0}, {1, 3}};
-    const TestArray rhs{{0, 1, 0}, {1, 3}};
+    const TestArray lhs{{1, 0, 0}, {3}};
+    const TestArray rhs{{0, 1, 0}, {3}};
 
     const auto result = nda::d2::cross3(lhs, rhs);
 
-    REQUIRE(nda::eq(result, TestArray{{0, 0, 1}, {1, 3}}));
+    REQUIRE(nda::eq(result, TestArray{{0, 0, 1}, {3}}));
 }

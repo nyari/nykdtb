@@ -205,7 +205,7 @@ NYKDTB_DEFINE_EXCEPTION_CLASS(Matrix2DError, RuntimeException)
 
 template<NDArrayLike T>
 inline static bool is2d(const typename T::Shape& shape) {
-    return (shape.dims() == 2);
+    return (shape.size() == 2);
 }
 
 template<NDArrayLike T>

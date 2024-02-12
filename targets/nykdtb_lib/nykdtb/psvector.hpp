@@ -123,6 +123,8 @@ public:
         ++m_currentSize;
     }
 
+    inline void resize(Size newSize) { resize(newSize, T{}); }
+
     inline void resize(Size newSize, T init) {
         const Size oldSize = m_currentSize;
         if (oldSize == newSize) {

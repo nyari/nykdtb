@@ -9,11 +9,25 @@
 
 namespace nykdtb {
 
+template<typename T>
+concept DynamicStorage = requires(T a) {
+    typename T::value_type;
+    { a.resize(Size{0}, typename T::value_type{}) } -> std::same_as<void>;
+};
+
+template<typename T>
+concept StaticStorage = requires(T a) {
+    typename T::value_type;
+    { a.fill(typename T::value_type{}) } -> std::same_as<void>;
+};
+
 struct NDArrayCalc {
+    NYKDTB_DEFINE_EXCEPTION_CLASS(SizesMismatch, LogicException)
+
     template<typename StridesType, typename ShapeType>
     static constexpr StridesType calculateStrides(const ShapeType& shape) {
         StridesType strides(shape);
-        strides.last() = 1;
+        strides[strides.size() - 1] = 1;
 
         for (Index i = strides.size() - 1; i > 0; --i) {
             strides[i - 1] = strides[i] * shape[i];
@@ -34,25 +48,14 @@ struct NDArrayCalc {
 
         return result;
     }
-};
 
-template<Size STACK_SIZE>
-struct NDArrayShape : public PSVec<Size, STACK_SIZE> {
-    NDArrayShape() = default;
-    NDArrayShape(std::initializer_list<Size> list)
-        : PSVec<Size, STACK_SIZE>(list) {}
-    template<typename Iter>
-    NDArrayShape(Iter begin, Iter end)
-        : PSVec<Size, STACK_SIZE>(begin, end) {}
-
-    bool operator==(const NDArrayShape& other) const {
-        const NDArrayShape& me = *this;
-
-        for (Index i = 0, j = 0; i < me.size() && j < other.size(); ++i, ++j) {
-            if (me[i] != other[j]) {
-                if (me[i] == 1 && other[j] != 1) [[unlikely]] {
+    template<typename LHS, typename RHS>
+    static constexpr bool compareShapes(const LHS& lhs, const RHS& rhs) {
+        for (Index i = 0, j = 0; i < lhs.size() && j < rhs.size(); ++i, ++j) {
+            if (lhs[i] != rhs[j]) {
+                if (lhs[i] == 1 && rhs[j] != 1) [[unlikely]] {
                     --j;
-                } else if (me[i] != 1 && other[j] == 1) [[unlikely]] {
+                } else if (lhs[i] != 1 && rhs[j] == 1) [[unlikely]] {
                     --i;
                 } else {
                     return false;
@@ -63,21 +66,31 @@ struct NDArrayShape : public PSVec<Size, STACK_SIZE> {
         return true;
     }
 
-    bool operator!=(const NDArrayShape& other) const { return !(*this == other); }
-
-    Size shapeSize() const {
-        if (PSVec<Size, STACK_SIZE>::empty()) {
-            return 0;
-        }
-
+    template<typename ShapeType>
+    static constexpr Size shapeSize(const ShapeType& lhs) {
         Size result = 1;
-        for (auto size : *this) {
+        for (auto size : lhs) {
             result *= size;
         }
         return result;
     }
 
-    Size dims() const { return this->size(); }
+    template<DynamicStorage LHS>
+    static LHS constructFilled(Size size, typename LHS::value_type init) {
+        LHS result;
+        result.resize(size, init);
+        return mmove(result);
+    }
+
+    template<StaticStorage LHS>
+    static LHS constructFilled(Size size, typename LHS::value_type init) {
+        LHS result;
+        if (static_cast<Size>(result.size()) != size) {
+            throw SizesMismatch();
+        }
+        result.fill(init);
+        return mmove(result);
+    };
 };
 
 template<typename T>
@@ -163,7 +176,7 @@ public:
     using MaterialType  = NDArrayStatic;
     using Type          = T;
     using SliceShape    = std::array<IndexRange, Meta::depth>;
-    using Shape         = NDArrayShape<Meta::depth>;
+    using Shape         = std::array<Size, Meta::depth>;
     using Strides       = std::array<Size, Meta::depth>;
     using Position      = std::array<Index, Meta::depth>;
     using Iterator      = Type*;
@@ -174,8 +187,21 @@ public:
 public:
     NDArrayStatic() = default;
     NDArrayStatic(std::initializer_list<Type> input) { std::copy(input.begin(), input.end(), begin()); }
+    NDArrayStatic(std::initializer_list<Type> input, Shape shape) {
+        if (shape != Meta::shape) {
+            throw ShapeDoesNotMatchStaticShape();
+        }
+        std::copy(input.begin(), input.end(), begin());
+    }
     template<typename Iter>
     NDArrayStatic(Iter _begin, Iter _end) {
+        std::copy(_begin, _end, begin());
+    }
+    template<typename Iter>
+    NDArrayStatic(Iter _begin, Iter _end, Shape shape) {
+        if (shape != Meta::shape) {
+            throw ShapeDoesNotMatchStaticShape();
+        }
         std::copy(_begin, _end, begin());
     }
 
@@ -214,7 +240,7 @@ public:
         return m_storage[NDArrayCalc::calculateRawIndexUnchecked(Meta::strides, position)];
     }
     static constexpr bool empty() { return false; }
-    static constexpr Shape shape() { return Shape(Meta::shape.begin(), Meta::shape.end()); }
+    static constexpr const Shape& shape() { return Meta::shape; }
     static constexpr Size shape(const Index idx) { return Meta::shape[idx]; }
     static constexpr const Strides& strides() { return Meta::strides; }
     static constexpr Size stride(const Index idx) { return Meta::strides[idx]; }
@@ -236,12 +262,18 @@ private:
 template<NDArrayLike NDT>
 class NDArraySlice;
 
+struct DefaultNDArrayParams {
+    static constexpr Size STACK_SIZE        = 8;
+    static constexpr Size SHAPE_STACK_SIZE  = 4;
+    static constexpr Size STORAGE_ALIGNMENT = 512;
+};
+
 template<typename T, typename Params>
 class NDArrayBase {
 public:
     using Type          = T;
     using MaterialType  = NDArrayBase<T, Params>;
-    using Shape         = NDArrayShape<Params::SHAPE_STACK_SIZE>;
+    using Shape         = PSVec<Size, Params::SHAPE_STACK_SIZE>;
     using Strides       = PSVec<Size, Params::SHAPE_STACK_SIZE>;
     using Position      = PSVec<Index, Params::SHAPE_STACK_SIZE>;
     using Storage       = PSVec<T, Params::STACK_SIZE, Params::STORAGE_ALIGNMENT>;
@@ -264,7 +296,7 @@ public:
         : m_storage(mmove(input)),
           m_shape(mmove(shape)),
           m_strides(NDArrayCalc::calculateStrides<Strides, Shape>(m_shape)) {
-        if (m_shape.shapeSize() != size()) {
+        if (NDArrayCalc::shapeSize(m_shape) != size()) {
             throw ShapeDoesNotMatchSize();
         }
     }
@@ -280,7 +312,7 @@ public:
         : m_storage(mmove(_begin), mmove(_end)),
           m_shape(mmove(shape)),
           m_strides(NDArrayCalc::calculateStrides<Strides, Shape>(m_shape)) {
-        if (m_shape.shapeSize() != size()) {
+        if (NDArrayCalc::shapeSize(m_shape) != size()) {
             throw ShapeDoesNotMatchSize();
         }
     }
@@ -294,14 +326,16 @@ public:
         : m_storage(mmove(input)),
           m_shape(mmove(shape)),
           m_strides(NDArrayCalc::calculateStrides<Strides, Shape>(m_shape)) {
-        if (m_shape.shapeSize() != size()) {
+        if (NDArrayCalc::shapeSize(m_shape) != size()) {
             throw ShapeDoesNotMatchSize();
         }
     }
 
-    static NDArrayBase zeros(Shape shape) { return {Storage::constructFilled(shape.shapeSize(), 0), mmove(shape)}; }
+    static NDArrayBase zeros(Shape shape) {
+        return {Storage::constructFilled(NDArrayCalc::shapeSize(shape), 0), shape};
+    }
     static NDArrayBase filled(Shape shape, T input) {
-        return {Storage::constructFilled(shape.shapeSize(), mmove(input)), mmove(shape)};
+        return {Storage::constructFilled(NDArrayCalc::shapeSize(shape), mmove(input)), shape};
     }
 
     NDArrayBase(NDArrayBase&&)            = default;
@@ -337,7 +371,7 @@ public:
     }
 
     void reshape(Shape shape) {
-        if (shape.shapeSize() != m_shape.shapeSize()) {
+        if (NDArrayCalc::shapeSize(shape) != NDArrayCalc::shapeSize(m_shape)) {
             throw ShapeDoesNotMatchSize();
         }
 
@@ -346,7 +380,7 @@ public:
     }
 
     void resize(Shape newShape, T init) {
-        m_storage.resize(newShape.shapeSize(), mmove(init));
+        m_storage.resize(NDArrayCalc::shapeSize(newShape), mmove(init));
         m_shape   = mmove(newShape);
         m_strides = NDArrayCalc::calculateStrides<Strides, Shape>(m_shape);
     }
@@ -391,15 +425,18 @@ public:
           m_shape(calculateShape(m_ndarray.shape(), m_sliceShape)),
           m_strides(NDArrayCalc::calculateStrides<Strides, Shape>(m_shape)) {}
 
-    bool empty() const { return m_shape.shapeSize(); }
+    bool empty() const { return NDArrayCalc::shapeSize(m_shape); }
     const Shape& shape() const { return m_shape; }
     Size shape(const Index idx) const { return m_shape[idx]; }
     const SliceShape& sliceShape() const { return m_sliceShape; }
     const Strides& strides() const { return m_strides; }
     Size stride(const Index idx) const { return m_strides[idx]; }
-    Size size() const { return m_shape.shapeSize(); }
+    Size size() const { return NDArrayCalc::shapeSize(m_shape); }
 
-    MaterialType materialize() const { return MaterialType{{begin(), end()}, m_shape}; }
+    NDArrayBase<Type, DefaultNDArrayParams> materialize() const {
+        return {
+            begin(), end(), typename NDArrayBase<Type, DefaultNDArrayParams>::Shape{m_shape.begin(), m_shape.end()}};
+    }
 
     static MaterialType filled(Shape shape, Type init) { return MaterialType::filled(mmove(shape), mmove(init)); }
     static MaterialType zeros(Shape shape) { return MaterialType::zeros(mmove(shape)); }
@@ -447,7 +484,7 @@ public:
 
         Shape result(original);
 
-        for (Index i = 0; i < original.size(); ++i) {
+        for (Index i = 0; i < static_cast<Size>(original.size()); ++i) {
             result[i] = sliceShape[i].effectiveSize(original[i]);
         }
 
@@ -458,7 +495,7 @@ public:
                                                                   const SliceShape& sliceShape,
                                                                   const Position& position) {
         Index result = 0;
-        for (Index i = 0; i < arrayStrides.size(); ++i) {
+        for (Index i = 0; i < static_cast<Size>(arrayStrides.size()); ++i) {
             result += arrayStrides[i] * (sliceShape[i].begin() + position[i]);
         }
         return result;
@@ -509,13 +546,18 @@ public:
         using ConstType = const Type;
         using Position  = typename T::Position;
 
+        using difference_type   = Size;
+        using value_type        = MutType;
+        using reference         = MutType&;
+        using iterator_category = std::forward_iterator_tag;
+
     public:
         IteratorBase(T& slice)
             : m_slice(slice),
-              m_pos{Position::constructFilled(m_slice.shape().size(), 0)},
+              m_pos{NDArrayCalc::constructFilled<Position>(m_slice.shape().size(), 0)},
               m_rawIndex{m_slice.calculateRawIndexFromPositionUnchecked(m_pos)} {}
         IteratorBase(T& slice, EndPlacement)
-            : m_slice(slice), m_pos{Position::constructFilled(m_slice.shape().size(), 0)}, m_rawIndex{} {
+            : m_slice(slice), m_pos{NDArrayCalc::constructFilled<Position>(m_slice.shape().size(), 0)}, m_rawIndex{} {
             m_pos[0]   = m_slice.shape(0);
             m_rawIndex = m_slice.calculateRawIndexFromPositionUnchecked(m_pos);
         }
@@ -571,12 +613,6 @@ public:
         Position m_pos;
         Index m_rawIndex;
     };
-};
-
-struct DefaultNDArrayParams {
-    static constexpr Size STACK_SIZE        = 8;
-    static constexpr Size SHAPE_STACK_SIZE  = 4;
-    static constexpr Size STORAGE_ALIGNMENT = 512;
 };
 
 template<NDArrayLike T>
