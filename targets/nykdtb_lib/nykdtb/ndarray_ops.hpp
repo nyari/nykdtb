@@ -226,7 +226,7 @@ inline static typename T::MaterialType identity(const typename T::Shape& shape) 
         result[{i, i}] = 1;
     }
 
-    return result;
+    return mmove(result);
 }
 
 template<NDArrayLike T>

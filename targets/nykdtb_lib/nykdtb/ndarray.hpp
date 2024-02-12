@@ -101,6 +101,9 @@ concept NDArrayLike = requires(T a) {
     { a.stride(Index{0}) } -> std::same_as<Size>;
     { a.size() } -> std::same_as<Size>;
 
+    { T::zeros(typename T::Shape{}) } -> std::same_as<typename T::MaterialType>;
+    { T::filled(typename T::Shape{}, typename T::Type{}) } -> std::same_as<typename T::MaterialType>;
+
     { a.begin() } -> std::same_as<typename T::Iterator>;
     { const_cast<const T&>(a).begin() } -> std::same_as<typename T::ConstIterator>;
     { a.end() } -> std::same_as<typename T::Iterator>;
@@ -124,6 +127,9 @@ concept NDArrayLike = requires(T a) {
     { a.strides() } -> std::common_reference_with<typename T::Strides>;
     { a.stride(Index{0}) } -> std::same_as<Size>;
     { a.size() } -> std::same_as<Size>;
+
+    { T::zeros(typename T::Shape{}) } -> std::same_as<typename T::MaterialType>;
+    { T::filled(typename T::Shape{}, typename T::Type{}) } -> std::same_as<typename T::MaterialType>;
 
     { a.begin() } -> std::same_as<typename T::ConstIterator>;
     { a.end() } -> std::same_as<typename T::ConstIterator>;
@@ -163,6 +169,8 @@ public:
     using Iterator      = Type*;
     using ConstIterator = const Type*;
 
+    NYKDTB_DEFINE_EXCEPTION_CLASS(ShapeDoesNotMatchStaticShape, LogicException)
+
 public:
     NDArrayStatic() = default;
     NDArrayStatic(std::initializer_list<Type> input) { std::copy(input.begin(), input.end(), begin()); }
@@ -172,14 +180,21 @@ public:
     }
 
     constexpr NDArrayStatic clone() const { return *this; }
-    static constexpr NDArrayStatic filled(const T& value) {
+    static constexpr NDArrayStatic filled(T value) {
         NDArrayStatic result;
         for (auto& elem : result) {
             elem = value;
         }
         return mmove(result);
     }
-    static constexpr NDArrayStatic zeroes() { return filled(0); }
+    static NDArrayStatic filled(Shape shape, T init) {
+        if (shape != NDArrayStatic::shape()) {
+            throw ShapeDoesNotMatchStaticShape();
+        }
+        return filled(mmove(init));
+    }
+    static constexpr NDArrayStatic zeros() { return filled(0); }
+    static NDArrayStatic zeros(Shape shape) { return filled(mmove(shape), 0); }
 
     NDArrayStatic(NDArrayStatic&&)            = default;
     NDArrayStatic& operator=(NDArrayStatic&&) = default;
@@ -198,12 +213,12 @@ public:
     constexpr const Type& operator[](const Position& position) const {
         return m_storage[NDArrayCalc::calculateRawIndexUnchecked(Meta::strides, position)];
     }
-    constexpr bool empty() const { return false; }
-    constexpr Shape shape() const { return Shape(Meta::shape.begin(), Meta::shape.end()); }
-    constexpr Size shape(const Index idx) const { return Meta::shape[idx]; }
-    constexpr const Strides& strides() const { return Meta::strides; }
-    constexpr Size stride(const Index idx) const { return Meta::strides[idx]; }
-    constexpr Size size() const { return Meta::storageSize; }
+    static constexpr bool empty() { return false; }
+    static constexpr Shape shape() { return Shape(Meta::shape.begin(), Meta::shape.end()); }
+    static constexpr Size shape(const Index idx) { return Meta::shape[idx]; }
+    static constexpr const Strides& strides() { return Meta::strides; }
+    static constexpr Size stride(const Index idx) { return Meta::strides[idx]; }
+    static constexpr Size size() { return Meta::storageSize; }
 
     constexpr Iterator begin() { return &m_storage[0]; }
     constexpr ConstIterator begin() const { return &m_storage[0]; }
@@ -239,10 +254,42 @@ public:
 
 public:
     NDArrayBase() = default;
+
+    NDArrayBase(std::initializer_list<Type> input)
+        : m_storage(mmove(input)),
+          m_shape({static_cast<Size>(m_storage.size())}),
+          m_strides(NDArrayCalc::calculateStrides<Strides, Shape>(m_shape)) {}
+
+    NDArrayBase(std::initializer_list<Type> input, Shape shape)
+        : m_storage(mmove(input)),
+          m_shape(mmove(shape)),
+          m_strides(NDArrayCalc::calculateStrides<Strides, Shape>(m_shape)) {
+        if (m_shape.shapeSize() != size()) {
+            throw ShapeDoesNotMatchSize();
+        }
+    }
+
+    template<typename Iter>
+    NDArrayBase(Iter _begin, Iter _end)
+        : m_storage(mmove(_begin), mmove(_end)),
+          m_shape({static_cast<Size>(m_storage.size())}),
+          m_strides(NDArrayCalc::calculateStrides<Strides, Shape>(m_shape)) {}
+
+    template<typename Iter>
+    NDArrayBase(Iter _begin, Iter _end, Shape shape)
+        : m_storage(mmove(_begin), mmove(_end)),
+          m_shape(mmove(shape)),
+          m_strides(NDArrayCalc::calculateStrides<Strides, Shape>(m_shape)) {
+        if (m_shape.shapeSize() != size()) {
+            throw ShapeDoesNotMatchSize();
+        }
+    }
+
     NDArrayBase(Storage input)
         : m_storage(mmove(input)),
           m_shape({static_cast<Size>(m_storage.size())}),
           m_strides(NDArrayCalc::calculateStrides<Strides, Shape>(m_shape)) {}
+
     NDArrayBase(Storage input, Shape shape)
         : m_storage(mmove(input)),
           m_shape(mmove(shape)),
@@ -251,9 +298,10 @@ public:
             throw ShapeDoesNotMatchSize();
         }
     }
+
     static NDArrayBase zeros(Shape shape) { return {Storage::constructFilled(shape.shapeSize(), 0), mmove(shape)}; }
-    static NDArrayBase filled(Shape shape, const T& input) {
-        return {Storage::constructFilled(shape.shapeSize(), input), mmove(shape)};
+    static NDArrayBase filled(Shape shape, T input) {
+        return {Storage::constructFilled(shape.shapeSize(), mmove(input)), mmove(shape)};
     }
 
     NDArrayBase(NDArrayBase&&)            = default;
@@ -352,6 +400,9 @@ public:
     Size size() const { return m_shape.shapeSize(); }
 
     MaterialType materialize() const { return MaterialType{{begin(), end()}, m_shape}; }
+
+    static MaterialType filled(Shape shape, Type init) { return MaterialType::filled(mmove(shape), mmove(init)); }
+    static MaterialType zeros(Shape shape) { return MaterialType::zeros(mmove(shape)); }
 
     Iterator begin() { return Iterator(*this); }
     ConstIterator begin() const { return ConstIterator(*this); }

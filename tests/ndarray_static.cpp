@@ -31,3 +31,21 @@ TEST_CASE("NDArray static matrix multiplication", "[ndarray][static]") {
 
     REQUIRE(nda::eq(result, DynamicTestArray{{12, 9, 6, -5, 30, 23, 16, -11, 48, 37, 26, -17}, {3, 4}}));
 }
+
+TEST_CASE("NDArray ", "[ndarray][static]") {
+    const DynamicTestArray lhs{{1, 2, 3, 4, 5, 6}, {3, 2}};
+    const StaticTestArray<2, 4> rhs{{6, 5, 4, -1, 3, 2, 1, -2}};
+
+    const auto result = nda::d2::matMul(lhs, rhs);
+
+    REQUIRE(nda::eq(result, DynamicTestArray{{12, 9, 6, -5, 30, 23, 16, -11, 48, 37, 26, -17}, {3, 4}}));
+}
+
+// TEST_CASE("NDArray matrix inverse", "[ndarray][matrix]") {
+//     StaticTestArray<2, 2> arr{{1, 2, 3, 4}};
+//     auto result = nda::d2::inverse(arr.clone());
+//     REQUIRE(result[{0, 0}] == -2);
+//     REQUIRE(result[{0, 1}] == 1);
+//     REQUIRE(result[{1, 0}] == 1.5);
+//     REQUIRE(result[{1, 1}] == -0.5);
+// }
