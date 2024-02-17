@@ -161,7 +161,7 @@ public:
         }
     }
 
-    inline void forEach(std::function<void(const T&)> accessor) {
+    inline void forEach(std::function<void(const T&)> accessor) const {
         for (const auto& item : *this) {
             accessor(item);
         }
